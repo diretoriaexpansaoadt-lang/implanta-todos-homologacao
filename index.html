@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implanta TODOS | Audição de TODOS</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <section id="loginScreen" class="login-screen">
+      <form id="loginForm" class="login-card">
+        <img class="login-logo" src="./assets/logo-adt.png" alt="Audição de Todos" />
+        <h1>Implanta TODOS</h1>
+        <p class="login-brand-subtitle">Audição de TODOS</p>
+        <p id="loginInstruction">Acesse com o e-mail e senha cadastrados.</p>
+        <label id="loginEmailLabel">
+          E-mail
+          <input id="loginEmailInput" type="email" required autocomplete="username" />
+        </label>
+        <label id="loginPasswordLabel">
+          Senha
+          <input id="loginPasswordInput" type="password" required autocomplete="current-password" />
+        </label>
+        <label id="loginPasswordConfirmLabel" hidden>
+          Confirmar nova senha
+          <input id="loginPasswordConfirmInput" type="password" autocomplete="new-password" />
+        </label>
+        <button id="loginSubmitBtn" class="primary-button" type="submit">Entrar</button>
+        <div id="loginMessage" class="login-message"></div>
+      </form>
+    </section>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <img class="brand-logo" src="./assets/logo-adt.png" alt="Audição de Todos" />
+          <div>
+            <h1>Implanta TODOS</h1>
+            <p>Audição de TODOS</p>
+          </div>
+        </div>
+        <nav class="nav" aria-label="Navegação">
+          <button class="nav-item is-active" data-view="dashboard" title="Dashboard"><span>⌂</span>Dashboard</button>
+          <button class="nav-item" data-view="items" title="Base de itens"><span>☷</span>Itens</button>
+          <button class="nav-item" data-view="pending" title="Pendências"><span>!</span>Pendências</button>
+          <button class="nav-item" data-view="alerts" title="Alertas"><span>⏱</span>Alertas</button>
+          <button class="nav-item" data-view="purchases" title="Compras"><span>✓</span>Compras</button>
+          <button class="nav-item" data-view="categories" title="Categorias"><span>▦</span>Categorias</button>
+          <button class="nav-item" data-view="myUnit" title="Minha Unidade"><span>□</span>Minha Unidade</button>
+          <button class="nav-item" data-view="documents" title="Documentos"><span>§</span>Documentos</button>
+          <button class="nav-item" data-view="units" title="Unidades"><span>▤</span>Unidades</button>
+          <button class="nav-item" data-view="users" data-permission="manageUsers" title="Usuários"><span>◎</span>Usuários</button>
+        </nav>
+        <div class="side-actions">
+          <button id="exportCsvBtn" class="ghost-button">Exportar CSV</button>
+          <button id="exportJsonBtn" class="ghost-button">Exportar JSON</button>
+          <label class="ghost-button file-button">
+            Importar JSON
+            <input id="importJsonInput" type="file" accept="application/json,.json" />
+          </label>
+          <button id="resetBtn" class="danger-button">Restaurar base</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Implanta TODOS | Audição de TODOS</p>
+            <h2 id="viewTitle">Dashboard Executivo</h2>
+          </div>
+          <div class="top-actions">
+            <label class="user-switch">
+              <span>Usuário</span>
+              <select id="activeUserSelect"></select>
+            </label>
+            <div class="saved-state" id="savedState">Salvo localmente</div>
+            <button id="saveBtn" class="primary-button">Salvar</button>
+            <button id="logoutBtn" class="ghost-button">Sair</button>
+          </div>
+        </header>
+
+        <section id="dashboardView" class="view is-visible">
+          <div class="kpi-grid">
+            <div class="kpi"><span>Investimento total</span><strong id="kpiTotal">R$ 0,00</strong></div>
+            <div class="kpi"><span>Comprado pelas unidades</span><strong id="kpiUnitBoughtInvestment">R$ 0,00</strong></div>
+            <div class="kpi"><span>Itens</span><strong id="kpiItems">0</strong></div>
+            <div class="kpi"><span>Pendências</span><strong id="kpiPending">0</strong></div>
+            <div class="kpi alert"><span>Vencidos</span><strong id="kpiOverdue">0</strong></div>
+            <div class="kpi warn"><span>Próx. 7 dias</span><strong id="kpiDueSoon">0</strong></div>
+            <div class="kpi"><span>A comprar</span><strong id="kpiToBuy">0</strong></div>
+            <div class="kpi"><span>Comprados</span><strong id="kpiBought">0</strong></div>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel wide">
+              <div class="panel-head">
+                <h3>Investimento por categoria</h3>
+                <select id="categorySort">
+                  <option value="total">Maior total</option>
+                  <option value="name">Nome</option>
+                  <option value="pending">Pendências</option>
+                </select>
+              </div>
+              <div id="categoryBars" class="bar-list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Status</h3>
+              </div>
+              <div class="donut-wrap">
+                <div id="statusDonut" class="donut"></div>
+                <div id="statusLegend" class="legend"></div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Top fornecedores</h3>
+              </div>
+              <div id="supplierList" class="supplier-list"></div>
+            </section>
+
+            <section class="panel wide unit-dashboard-panel" id="unitDashboardPanel">
+              <div class="panel-head">
+                <h3>Evolução por franqueado</h3>
+              </div>
+              <div id="dashboardUnitProgress" class="dashboard-unit-progress"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="itemsView" class="view">
+          <div class="toolbar">
+            <input id="searchInput" class="search" type="search" placeholder="Buscar item, fornecedor ou descrição" />
+            <select id="itemsUnitFilter"><option value="">Unidade acompanhada</option></select>
+            <select id="categoryFilter"><option value="">Todas as categorias</option></select>
+            <select id="statusFilter"><option value="">Todos os status</option></select>
+            <select id="priorityFilter"><option value="">Todas as prioridades</option></select>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" id="itemsTable">
+              <thead>
+                <tr>
+                  <th>Categoria</th>
+                  <th>Item</th>
+                  <th>Foto do produto</th>
+                  <th>Fornecedor</th>
+                  <th>Link compra</th>
+                  <th>Valor</th>
+                  <th>Qtd.</th>
+                  <th>Total</th>
+                  <th>Prazo</th>
+                  <th>Vencimento</th>
+                  <th>Alerta</th>
+                  <th>Comprovante</th>
+                  <th>Status</th>
+                  <th>Prioridade</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="pendingView" class="view">
+          <div class="toolbar compact">
+            <input id="pendingSearchInput" class="search" type="search" placeholder="Buscar pendência" />
+            <button id="markSelectedDefBtn" class="ghost-button">Marcar selecionados como Cotando</button>
+          </div>
+          <div id="pendingList" class="issue-list"></div>
+        </section>
+
+        <section id="alertsView" class="view">
+          <section class="panel operational-alerts-panel">
+            <div class="panel-head"><h3>Notificações operacionais</h3></div>
+            <div id="operationalNotifications" class="app-notifications"></div>
+          </section>
+          <div class="toolbar alert-toolbar">
+            <input id="alertSearchInput" class="search" type="search" placeholder="Buscar alerta" />
+            <select id="alertFilter">
+              <option value="">Todos os alertas</option>
+              <option value="Vencido">Vencidos</option>
+              <option value="Vence hoje">Vence hoje</option>
+              <option value="Próx. 7 dias">Próx. 7 dias</option>
+              <option value="Próx. 30 dias">Próx. 30 dias</option>
+              <option value="Sem data">Sem data</option>
+            </select>
+          </div>
+          <div id="alertsList" class="alert-list"></div>
+        </section>
+
+        <section id="purchasesView" class="view">
+          <div class="purchase-columns">
+            <section class="purchase-lane" data-status="A Comprar"><h3>A Comprar</h3><div></div></section>
+            <section class="purchase-lane" data-status="Cotando"><h3>Cotando</h3><div></div></section>
+            <section class="purchase-lane" data-status="Comprado"><h3>Comprado</h3><div></div></section>
+          </div>
+        </section>
+
+        <section id="categoriesView" class="view">
+          <div id="categoryGrid" class="category-grid"></div>
+        </section>
+
+        <section id="myUnitView" class="view">
+          <section id="myUnitComparisonPanel" class="panel unit-comparison-panel">
+            <div class="panel-head">
+              <div>
+                <h3>Comparativo de evolução das unidades</h3>
+                <p>Progresso ponderado, com menor peso para itens de Papelaria.</p>
+              </div>
+            </div>
+            <div class="unit-comparison-head">
+              <span>Unidade</span><span>Evolução</span><span>Concluídos</span><span>Em aberto</span><span>Vencidos</span><span>Investido</span><span>Previsão</span>
+            </div>
+            <div id="myUnitComparisonBody" class="unit-comparison-body"></div>
+          </section>
+          <div class="unit-header">
+            <div>
+              <p class="eyebrow">Checklist particular</p>
+              <h3 id="myUnitTitle">Minha Unidade</h3>
+              <p id="myUnitSubtitle">Acompanhe item por item da sua implantação.</p>
+            </div>
+            <div class="unit-progress">
+              <strong id="myUnitProgress">0%</strong>
+              <span>concluído</span>
+              <em id="myUnitOpeningForecast">Previsão em análise</em>
+            </div>
+          </div>
+          <div class="toolbar">
+            <label id="myUnitSelectorWrap" class="my-unit-selector">
+              <span>Unidade acompanhada</span>
+              <select id="myUnitSelector"></select>
+            </label>
+            <input id="myUnitSearchInput" class="search" type="search" placeholder="Buscar no checklist" />
+            <select id="myUnitCategoryFilter"><option value="">Todas as categorias</option></select>
+            <select id="myUnitStatusFilter">
+              <option value="">Todos os itens</option>
+              <option value="done">Concluídos</option>
+              <option value="open">Em aberto</option>
+            </select>
+          </div>
+          <div id="myUnitChecklist" class="checklist"></div>
+        </section>
+
+        <section id="unitsView" class="view">
+          <div class="toolbar compact">
+            <input id="unitsSearchInput" class="search" type="search" placeholder="Buscar unidade ou franqueado" />
+            <button id="createUnitBtn" class="ghost-button">Nova unidade</button>
+          </div>
+          <div id="unitsOverview" class="units-grid"></div>
+          <section class="panel unit-detail-panel">
+            <div class="panel-head">
+              <div>
+                <h3 id="selectedUnitTitle">Selecione uma unidade</h3>
+                <p id="selectedUnitForecast" class="unit-forecast-text">Previsão em análise</p>
+              </div>
+              <select id="selectedUnitCategoryFilter"><option value="">Todas as categorias</option></select>
+            </div>
+            <div id="selectedUnitCompletionActions"></div>
+            <div id="selectedUnitChecklist" class="checklist compact-checklist"></div>
+          </section>
+          <section class="panel archived-units-panel">
+            <div class="panel-head">
+              <div>
+                <h3>Histórico de implantações concluídas</h3>
+                <p>Unidades arquivadas não entram mais nos dashboards operacionais.</p>
+              </div>
+            </div>
+            <div id="archivedUnitsHistory" class="archive-history"></div>
+          </section>
+        </section>
+
+        <section id="documentsView" class="view">
+          <section class="panel operational-alerts-panel document-alerts-panel">
+            <div class="panel-head"><h3>Novos documentos enviados</h3></div>
+            <div id="documentNotifications" class="app-notifications"></div>
+          </section>
+          <div class="toolbar documents-toolbar">
+            <input id="documentsSearchInput" class="search" type="search" placeholder="Buscar documento, unidade ou franqueado" />
+            <select id="documentsUnitFilter"><option value="">Todas as unidades</option></select>
+            <select id="documentsStatusFilter">
+              <option value="">Todos os status</option>
+              <option value="Solicitado">Solicitado</option>
+              <option value="Processando">Processando</option>
+              <option value="Recusado">Recusado</option>
+              <option value="Concluido">Concluido</option>
+            </select>
+            <button id="toggleArchivedDocumentsBtn" class="ghost-button" type="button">Ver arquivo documental</button>
+          </div>
+          <div id="documentsFinalApprovals" class="document-final-approvals"></div>
+          <div id="documentsSummary" class="documents-summary"></div>
+          <div id="documentsList" class="documents-list"></div>
+        </section>
+        <section id="usersView" class="view">
+          <div class="users-layout">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Cadastrar usuário</h3>
+              </div>
+              <form id="userForm" class="user-form">
+                <label>
+                  Nome
+                  <input id="userNameInput" required placeholder="Ex.: Maria Silva" />
+                </label>
+                <label>
+                  E-mail
+                  <input id="userEmailInput" type="email" required placeholder="nome@email.com" />
+                </label>
+                <label>
+                  WhatsApp
+                  <input id="userPhoneInput" type="tel" placeholder="Ex.: 31999999999" />
+                </label>
+                <label>
+                  Perfil
+                  <select id="userRoleInput">
+                    <option value="Administrador">Administrador</option>
+                    <option value="Consultor de implantação">Consultor de implantação</option>
+                    <option value="Contabilidade">Contabilidade</option>
+                    <option value="Franqueado">Franqueado</option>
+                  </select>
+                </label>
+                <label id="userExistingUnitLabel">
+                  Unidade franqueada existente
+                  <select id="userUnitSelect">
+                    <option value="">Criar uma nova unidade</option>
+                  </select>
+                </label>
+                <label id="userNewUnitLabel">
+                  Nome da nova unidade franqueada
+                  <input id="userUnitInput" placeholder="Ex.: Unidade Belo Horizonte" />
+                </label>
+                <p id="userGlobalUnitNotice" class="form-note" hidden>Este perfil será vinculado automaticamente a todas as unidades.</p>
+                <button class="primary-button" type="submit">Adicionar usuário</button>
+              </form>
+            </section>
+
+            <section class="panel wide-users">
+              <div class="panel-head">
+                <h3>Usuários cadastrados</h3>
+                <p class="panel-helper">Use “Copiar 1º acesso” para colar o link, login e senha no WhatsApp ou e-mail.</p>
+              </div>
+              <div class="table-wrap users-table-wrap">
+                <table class="data-table users-table" id="usersTable">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>E-mail</th>
+                      <th>WhatsApp</th>
+                      <th>Perfil</th>
+                      <th>Unidade(s) vinculada(s)</th>
+                      <th>Senha</th>
+                      <th>Status</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel permissions-panel">
+            <div class="panel-head">
+              <h3>Permissões por perfil</h3>
+            </div>
+            <div id="permissionsMatrix" class="permissions-grid"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div id="itemPhotoModal" class="image-modal" role="dialog" aria-modal="true" aria-labelledby="itemPhotoTitle">
+      <div class="image-modal-backdrop" data-close-item-photo></div>
+      <section class="image-modal-content">
+        <div class="image-modal-head">
+          <h3 id="itemPhotoTitle">Foto do produto</h3>
+          <button class="image-modal-close" type="button" data-close-item-photo title="Fechar">×</button>
+        </div>
+        <img id="itemPhotoImage" class="image-modal-photo" alt="Foto do produto" />
+        <p id="itemPhotoCaption" class="image-modal-caption"></p>
+      </section>
+    </div>
+
+    <div id="documentGuidanceModal" class="image-modal guidance-modal" role="dialog" aria-modal="true" aria-labelledby="documentGuidanceTitle">
+      <div class="image-modal-backdrop" data-close-document-guidance></div>
+      <section class="image-modal-content guidance-modal-content">
+        <div class="image-modal-head">
+          <div>
+            <span class="modal-eyebrow">Como providenciar</span>
+            <h3 id="documentGuidanceTitle">Orientação do documento</h3>
+          </div>
+          <button class="image-modal-close" type="button" data-close-document-guidance title="Fechar">Ã—</button>
+        </div>
+        <textarea id="documentGuidanceText" class="guidance-text" rows="10" aria-label="Texto de orientação"></textarea>
+        <div class="guidance-modal-footer">
+          <p id="documentGuidanceMode" class="image-modal-caption">Orientação para consulta.</p>
+          <button id="saveDocumentGuidanceBtn" class="primary-button" type="button">Salvar orientação</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="documentRejectionModal" class="image-modal rejection-modal" role="dialog" aria-modal="true" aria-labelledby="documentRejectionTitle">
+      <div class="image-modal-backdrop" data-close-document-rejection></div>
+      <section class="image-modal-content rejection-modal-content">
+        <div class="image-modal-head">
+          <div>
+            <span class="modal-eyebrow rejection-eyebrow">Recusar documento</span>
+            <h3 id="documentRejectionTitle">Documento</h3>
+            <p id="documentRejectionUnit" class="rejection-unit"></p>
+          </div>
+          <button class="image-modal-close" type="button" data-close-document-rejection title="Fechar">×</button>
+        </div>
+        <label class="rejection-field">
+          Motivo da recusa e orientações para o franqueado
+          <textarea id="documentRejectionReason" rows="7" placeholder="Explique o que precisa ser corrigido e como o franqueado deve proceder."></textarea>
+        </label>
+        <div class="rejection-modal-actions">
+          <button class="ghost-button" type="button" data-close-document-rejection>Cancelar</button>
+          <button id="confirmDocumentRejectionBtn" class="danger-button" type="button">Confirmar recusa</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="./data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

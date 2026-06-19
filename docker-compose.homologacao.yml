@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: implanta_todos_hml
+      POSTGRES_USER: implanta
+      POSTGRES_PASSWORD: troque-a-senha-do-banco
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U implanta -d implanta_todos_hml"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: implanta-storage
+      MINIO_ROOT_PASSWORD: troque-a-senha-do-storage
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9001:9001"
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 implanta-storage troque-a-senha-do-storage; do sleep 2; done;
+      mc mb --ignore-existing local/implanta-homologacao;
+      mc anonymous set none local/implanta-homologacao;
+      "
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    ports:
+      - "8765:10000"
+    environment:
+      NODE_ENV: staging
+      PORT: 10000
+      PUBLIC_APP_URL: http://127.0.0.1:8765
+      ALLOWED_ORIGIN: http://127.0.0.1:8765
+      TRUST_PROXY: "false"
+      SESSION_SECRET: substitua-por-um-segredo-longo-com-pelo-menos-48-bytes
+      BOOTSTRAP_ADMIN_EMAIL: administrador@exemplo.com.br
+      BOOTSTRAP_ADMIN_PASSWORD: TroqueEstaSenha123
+      DATABASE_URL: postgresql://implanta:troque-a-senha-do-banco@postgres:5432/implanta_todos_hml
+      STORAGE_DRIVER: s3
+      S3_BUCKET: implanta-homologacao
+      S3_REGION: us-east-1
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY_ID: implanta-storage
+      S3_SECRET_ACCESS_KEY: troque-a-senha-do-storage
+      S3_FORCE_PATH_STYLE: "true"
+
+volumes:
+  postgres_data:
+  minio_data:

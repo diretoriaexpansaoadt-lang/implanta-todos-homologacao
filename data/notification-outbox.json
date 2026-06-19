@@ -1,0 +1,28 @@
+[
+  {
+    "channel": "email",
+    "type": "invite",
+    "userId": "teste",
+    "userName": "Edgar",
+    "target": "edgar@example.com",
+    "result": {
+      "sent": false,
+      "reason": "SENDGRID_API_KEY/SENDGRID_FROM não configurados"
+    },
+    "body": "Olá, Edgar.\n\nSeu acesso ao app Enxoval Audição de Todos foi criado.\n\nLink: http://127.0.0.1:8877/\nLogin: edgar@example.com\nSenha: Teste123\n\nAo acessar, use exatamente o e-mail e a senha acima.",
+    "createdAt": "2026-06-17T11:50:00.769Z"
+  },
+  {
+    "channel": "whatsapp",
+    "type": "invite",
+    "userId": "teste",
+    "userName": "Edgar",
+    "target": "31999999999",
+    "result": {
+      "sent": false,
+      "reason": "provedor de WhatsApp não configurado"
+    },
+    "body": "Olá, Edgar.\n\nSeu acesso ao app Enxoval Audição de Todos foi criado.\n\nLink: http://127.0.0.1:8877/\nLogin: edgar@example.com\nSenha: Teste123\n\nAo acessar, use exatamente o e-mail e a senha acima.",
+    "createdAt": "2026-06-17T11:50:00.777Z"
+  }
+]

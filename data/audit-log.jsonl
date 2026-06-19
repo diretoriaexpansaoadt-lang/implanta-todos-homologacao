@@ -1,0 +1,5 @@
+{"actorId":"810dfa7d-7bfd-42f0-b4c3-a0e48ecd022f","actorEmail":"admin@local","action":"auth.login_failed","detail":{"email":"admin@local"},"ip":"127.0.0.1","createdAt":"2026-06-18T14:30:02.472Z"}
+{"actorId":"810dfa7d-7bfd-42f0-b4c3-a0e48ecd022f","actorEmail":"admin@local","action":"auth.login","detail":{},"ip":"127.0.0.1","createdAt":"2026-06-18T14:31:44.367Z"}
+{"actorId":"810dfa7d-7bfd-42f0-b4c3-a0e48ecd022f","actorEmail":"admin@local","action":"state.updated","detail":{"exportedAt":"2026-06-18T14:31:44.492Z"},"ip":"127.0.0.1","createdAt":"2026-06-18T14:31:44.496Z"}
+{"actorId":"810dfa7d-7bfd-42f0-b4c3-a0e48ecd022f","actorEmail":"admin@local","action":"user.first_access_created","detail":{"userId":"af7d1e60-6f26-4cc3-a395-76682a760245"},"ip":"127.0.0.1","createdAt":"2026-06-18T14:31:44.534Z"}
+{"actorId":"810dfa7d-7bfd-42f0-b4c3-a0e48ecd022f","actorEmail":"admin@local","action":"auth.login","detail":{},"ip":"127.0.0.1","createdAt":"2026-06-18T14:48:27.249Z"}
