@@ -30,7 +30,7 @@
       </form>
     </section>
     <div class="app-shell">
-      <aside class="sidebar">
+      <aside id="appSidebar" class="sidebar">
         <div class="brand">
           <img class="brand-logo" src="./assets/logo-adt.png" alt="Audição de Todos" />
           <div>
@@ -60,10 +60,15 @@
           <button id="resetBtn" class="danger-button">Restaurar base</button>
         </div>
       </aside>
+      <button id="mobileNavBackdrop" class="mobile-nav-backdrop" type="button" aria-label="Fechar menu"></button>
 
       <main class="main">
         <header class="topbar">
-          <div>
+          <button id="mobileMenuBtn" class="mobile-menu-button" type="button" aria-controls="appSidebar" aria-expanded="false">
+            <span aria-hidden="true">☰</span>
+            Menu
+          </button>
+          <div class="topbar-title">
             <p class="eyebrow">Implanta TODOS | Audição de TODOS</p>
             <h2 id="viewTitle">Dashboard Executivo</h2>
           </div>
@@ -238,6 +243,7 @@
               <option value="done">Concluídos</option>
               <option value="open">Em aberto</option>
             </select>
+            <button id="addChecklistItemBtn" class="ghost-button" type="button" data-permission="editItems">Adicionar item</button>
           </div>
           <div id="myUnitChecklist" class="checklist"></div>
         </section>
@@ -254,7 +260,10 @@
                 <h3 id="selectedUnitTitle">Selecione uma unidade</h3>
                 <p id="selectedUnitForecast" class="unit-forecast-text">Previsão em análise</p>
               </div>
-              <select id="selectedUnitCategoryFilter"><option value="">Todas as categorias</option></select>
+              <div class="panel-actions">
+                <button id="addSelectedChecklistItemBtn" class="ghost-button" type="button" data-permission="editItems">Adicionar item</button>
+                <select id="selectedUnitCategoryFilter"><option value="">Todas as categorias</option></select>
+              </div>
             </div>
             <div id="selectedUnitCompletionActions"></div>
             <div id="selectedUnitChecklist" class="checklist compact-checklist"></div>

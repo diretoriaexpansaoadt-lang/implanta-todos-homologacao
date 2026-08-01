@@ -12,6 +12,72 @@ const NOTIFICATIONS_STORAGE_KEY = "enxoval-app-notifications-v1";
 const MILESTONES_STORAGE_KEY = "enxoval-app-milestones-v1";
 const SELECTED_UNIT_STORAGE_KEY = "enxoval-app-selected-unit-v1";
 const baseData = window.ENXOVAL_DATA || { items: [], categories: [], statuses: [], priorities: [] };
+const REQUIRED_CHECKLIST_ITEMS = [
+  {
+    id: "revisao-20260729-gancho-adesivo",
+    categoria: "Diversos",
+    item: "Gancho Adesivo",
+    descricao: "3m Sem Furo Kit 4 Ultra Forte Parede Suporte",
+    fornecedor: "DIVERSOS",
+    fornecedorLink: "",
+    valor: 30,
+    quantidade: 1,
+    prazo: "15 DIAS",
+    status: "A Comprar",
+    prioridade: "Média",
+    observacoes: "Item destacado em laranja na revisão do checklist.",
+    fonte: "Revisão checklist 2026-07-29",
+    linha: "NOVO-001",
+  },
+  {
+    id: "revisao-20260729-gaveteiro-impedanciometro",
+    categoria: "Mobiliário",
+    item: "Gaveteiro Impedanciômetro",
+    descricao: "Gaveteiro em MDF Ciliegio com quatro gavetas e rodízio",
+    fornecedor: "DECH MÓVEIS",
+    fornecedorLink: "",
+    valor: 840,
+    quantidade: 1,
+    prazo: "20 DIAS",
+    status: "A Comprar",
+    prioridade: "Média",
+    observacoes: "Item destacado em laranja na revisão do checklist.",
+    fonte: "Revisão checklist 2026-07-29",
+    linha: "NOVO-002",
+  },
+  {
+    id: "revisao-20260729-gaveteiro-mesa-fono",
+    categoria: "Mobiliário",
+    item: "Gaveteiro - mesa fono",
+    descricao: "Gaveteiro em MDF Ciliegio com três gavetas e rodízio",
+    fornecedor: "DECH MÓVEIS",
+    fornecedorLink: "",
+    valor: 780,
+    quantidade: 1,
+    prazo: "20 DIAS",
+    status: "A Comprar",
+    prioridade: "Média",
+    observacoes: "Item destacado em laranja na revisão do checklist.",
+    fonte: "Revisão checklist 2026-07-29",
+    linha: "NOVO-003",
+  },
+  {
+    id: "revisao-20260729-armario-copa",
+    categoria: "Mobiliário",
+    item: "Armário Copa",
+    descricao: "Em MDF Branco",
+    fornecedor: "DECH MÓVEIS",
+    fornecedorLink: "",
+    valor: 471,
+    quantidade: 2,
+    prazo: "21 DIAS",
+    status: "A Comprar",
+    prioridade: "Média",
+    observacoes: "Item destacado em laranja na revisão do checklist.",
+    fonte: "Revisão checklist 2026-07-29",
+    linha: "NOVO-004",
+  },
+];
 const API_ENABLED = /^https?:$/.test(window.location.protocol);
 let csrfToken = "";
 const DOCUMENT_STATUSES = ["Solicitado", "Processando", "Recusado", "Concluido"];
@@ -283,13 +349,29 @@ function loadItems() {
   const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
   if (saved) {
     try {
-      return JSON.parse(saved).map(normalizeItem);
+      return mergeRequiredChecklistItems(JSON.parse(saved).map(normalizeItem));
     } catch {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(LEGACY_STORAGE_KEY);
     }
   }
-  return baseData.items.map(normalizeItem);
+  return mergeRequiredChecklistItems(baseData.items.map(normalizeItem));
+}
+
+function mergeRequiredChecklistItems(rows) {
+  const normalizedRows = Array.isArray(rows) ? rows.map(normalizeItem) : [];
+  const ids = new Set(normalizedRows.map((item) => item.id));
+  const names = new Set(normalizedRows.map((item) => String(item.item || "").trim().toLowerCase()).filter(Boolean));
+  REQUIRED_CHECKLIST_ITEMS.forEach((required) => {
+    const name = String(required.item || "").trim().toLowerCase();
+    if (!ids.has(required.id) && !names.has(name)) {
+      const item = normalizeItem(required);
+      normalizedRows.push(item);
+      ids.add(item.id);
+      names.add(String(item.item || "").trim().toLowerCase());
+    }
+  });
+  return normalizedRows;
 }
 
 function loadUsers() {
@@ -1372,7 +1454,7 @@ function appState() {
 function applyAppState(state) {
   if (!state || typeof state !== "object") return false;
   const loggedId = authenticatedUserId;
-  if (Array.isArray(state.items)) items = state.items.map(normalizeItem);
+  if (Array.isArray(state.items)) items = mergeRequiredChecklistItems(state.items.map(normalizeItem));
   if (Array.isArray(state.users)) users = state.users.map(normalizeUser);
   if (Array.isArray(state.units)) units = state.units.map(normalizeUnit);
   if (!API_ENABLED) {
@@ -1582,6 +1664,7 @@ function itemsContextUnit() {
 function setView(view) {
   if (!canView(view)) view = fallbackView();
   currentView = view;
+  closeMobileNavigation();
   document.querySelectorAll(".nav-item").forEach((btn) => btn.classList.toggle("is-active", btn.dataset.view === view));
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("is-visible"));
   document.getElementById(`${view}View`).classList.add("is-visible");
@@ -1601,6 +1684,21 @@ function setView(view) {
     ? "Acompanhamento das Unidades"
     : titles[view];
   render();
+}
+
+function setMobileNavigation(open) {
+  const sidebar = document.getElementById("appSidebar");
+  const backdrop = document.getElementById("mobileNavBackdrop");
+  const button = document.getElementById("mobileMenuBtn");
+  if (!sidebar || !backdrop || !button) return;
+  sidebar.classList.toggle("is-open", open);
+  backdrop.classList.toggle("is-visible", open);
+  button.setAttribute("aria-expanded", String(open));
+  document.body.classList.toggle("mobile-nav-open", open);
+}
+
+function closeMobileNavigation() {
+  setMobileNavigation(false);
 }
 
 function render() {
@@ -2619,6 +2717,44 @@ function updateItem(id, field, value) {
   if (currentView === "units") renderUnits();
 }
 
+function addChecklistItemFromPrompt() {
+  if (!can("editItems")) return alert("Seu perfil não permite adicionar itens ao checklist.");
+  const defaultCategory = document.getElementById("myUnitCategoryFilter")?.value ||
+    document.getElementById("selectedUnitCategoryFilter")?.value ||
+    "Diversos";
+  const name = prompt("Nome do novo item do checklist:");
+  if (!name || !name.trim()) return;
+  const category = prompt("Categoria:", defaultCategory) || defaultCategory;
+  const description = prompt("Descrição do item:", "") || "";
+  const supplier = prompt("Fornecedor/Local:", "") || "";
+  const valueInput = prompt("Valor unitário:", "0");
+  if (valueInput === null) return;
+  const quantityInput = prompt("Quantidade:", "1");
+  if (quantityInput === null) return;
+  const deadline = prompt("Prazo:", "A DEFINIR") || "A DEFINIR";
+  const item = normalizeItem({
+    id: crypto.randomUUID(),
+    categoria: category.trim() || "Diversos",
+    item: name.trim(),
+    descricao: description.trim(),
+    fornecedor: supplier.trim(),
+    fornecedorLink: "",
+    valor: toNumber(valueInput),
+    quantidade: toNumber(quantityInput) || 1,
+    prazo: deadline.trim() || "A DEFINIR",
+    vencimento: deriveDueDate(deadline.trim()),
+    status: "A Comprar",
+    prioridade: "Média",
+    observacoes: "Item adicionado manualmente no checklist.",
+    fonte: "Cadastro manual",
+    linha: `MANUAL-${Date.now()}`,
+  });
+  items.push(item);
+  saveAll();
+  render();
+  alert("Item adicionado ao checklist.");
+}
+
 function exportCsv() {
   if (!can("exportData")) return alert("Seu perfil não permite exportar dados.");
   const headers = ["Categoria", "Item", "Descrição", "Fornecedor/Local", "Link Compra", "Valor Unitário", "Quantidade", "Total Estimado", "Prazo", "Vencimento", "Alerta", "Status", "Prioridade", "Observações", "Fonte", "Linha"];
@@ -2731,6 +2867,17 @@ function escapeAttr(value) {
 }
 
 document.querySelectorAll(".nav-item").forEach((btn) => btn.addEventListener("click", () => setView(btn.dataset.view)));
+document.getElementById("mobileMenuBtn")?.addEventListener("click", () => {
+  const sidebar = document.getElementById("appSidebar");
+  setMobileNavigation(!sidebar?.classList.contains("is-open"));
+});
+document.getElementById("mobileNavBackdrop")?.addEventListener("click", closeMobileNavigation);
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeMobileNavigation();
+});
+window.addEventListener("resize", () => {
+  if (window.innerWidth > 980) closeMobileNavigation();
+});
 window.addEventListener("resize", fitKpiValues);
 document.getElementById("loginForm").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -2872,6 +3019,8 @@ document.getElementById("myUnitComparisonBody").addEventListener("click", (event
 });
 document.getElementById("unitsSearchInput").addEventListener("input", renderUnits);
 document.getElementById("selectedUnitCategoryFilter").addEventListener("input", renderUnits);
+document.getElementById("addChecklistItemBtn")?.addEventListener("click", addChecklistItemFromPrompt);
+document.getElementById("addSelectedChecklistItemBtn")?.addEventListener("click", addChecklistItemFromPrompt);
 document.getElementById("createUnitBtn").addEventListener("click", () => {
   if (!can("manageUnits")) return alert("Seu perfil não permite criar unidades.");
   const name = prompt("Nome da nova unidade:");
