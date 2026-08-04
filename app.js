@@ -1997,6 +1997,7 @@ function renderItemsTable() {
       <td>${proofControls(item, unit?.id)}</td>
       <td>${selectHtml("status", scoped.status, allowedStatusOptions(), rowStatusDisabled)}</td>
       <td>${selectHtml("prioridade", scoped.prioridade, baseData.priorities, baseDisabled)}</td>
+      <td>${canEditUnitParams ? `<button class="danger-button small-action" type="button" data-item-delete="${escapeHtml(item.id)}">Excluir</button>` : ""}</td>
     </tr>
   `;
   }).join("");
@@ -2244,6 +2245,7 @@ function renderChecklist(unitId, containerId, options = {}) {
           <p>${escapeHtml(scoped.categoria)} · ${escapeHtml(scoped.fornecedor || "Sem fornecedor")} · ${money.format(totalOf(scoped))} · venc. ${escapeHtml(formatDate(scoped.vencimento) || "sem data")}</p>
           <div class="checklist-actions">
             ${supplierLink(scoped, "Comprar")}
+            ${can("editItems") ? `<button class="danger-button small-action" type="button" data-item-delete="${escapeHtml(item.id)}">Excluir item</button>` : ""}
             <input class="check-note" data-checklist-field="note" placeholder="Observação da unidade" value="${escapeAttr(entry.note || "")}" ${disabled} />
           </div>
           ${proofControls(item, unitId)}
@@ -2719,12 +2721,10 @@ function updateItem(id, field, value) {
 
 function addChecklistItemFromPrompt() {
   if (!can("editItems")) return alert("Seu perfil não permite adicionar itens ao checklist.");
-  const defaultCategory = document.getElementById("myUnitCategoryFilter")?.value ||
-    document.getElementById("selectedUnitCategoryFilter")?.value ||
-    "Diversos";
+  const category = chooseExistingItemCategory();
+  if (!category) return;
   const name = prompt("Nome do novo item do checklist:");
   if (!name || !name.trim()) return;
-  const category = prompt("Categoria:", defaultCategory) || defaultCategory;
   const description = prompt("Descrição do item:", "") || "";
   const supplier = prompt("Fornecedor/Local:", "") || "";
   const valueInput = prompt("Valor unitário:", "0");
@@ -2734,7 +2734,7 @@ function addChecklistItemFromPrompt() {
   const deadline = prompt("Prazo:", "A DEFINIR") || "A DEFINIR";
   const item = normalizeItem({
     id: crypto.randomUUID(),
-    categoria: category.trim() || "Diversos",
+    categoria: category,
     item: name.trim(),
     descricao: description.trim(),
     fornecedor: supplier.trim(),
@@ -2753,6 +2753,43 @@ function addChecklistItemFromPrompt() {
   saveAll();
   render();
   alert("Item adicionado ao checklist.");
+}
+
+function chooseExistingItemCategory() {
+  const categories = unique(items.map((item) => item.categoria));
+  if (!categories.length) {
+    alert("Cadastre ao menos uma categoria antes de adicionar itens.");
+    return "";
+  }
+  const preferred = document.getElementById("myUnitCategoryFilter")?.value ||
+    document.getElementById("selectedUnitCategoryFilter")?.value ||
+    document.getElementById("categoryFilter")?.value ||
+    "";
+  const defaultIndex = Math.max(0, categories.indexOf(preferred));
+  const list = categories.map((category, index) => `${index + 1}. ${category}`).join("\n");
+  const answer = prompt(`Escolha a categoria existente para este item:\n\n${list}`, String(defaultIndex + 1));
+  if (answer === null) return "";
+  const selectedIndex = Number.parseInt(answer, 10) - 1;
+  if (!Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex >= categories.length) {
+    alert("Categoria inválida. O item precisa ser vinculado a uma categoria já existente.");
+    return "";
+  }
+  return categories[selectedIndex];
+}
+
+function deleteChecklistItem(itemId) {
+  if (!can("editItems")) return alert("Seu perfil não permite excluir itens.");
+  const item = items.find((candidate) => candidate.id === itemId);
+  if (!item) return;
+  if (!confirm(`Excluir o item "${item.item || "Item sem nome"}" do checklist?\n\nEsta ação remove o item da base, das unidades e dos dashboards.`)) return;
+  items = items.filter((candidate) => candidate.id !== itemId);
+  selectedIssues.delete(itemId);
+  delete itemPhotos[itemId];
+  Object.keys(checklist).forEach((key) => {
+    if (key.endsWith(`::${itemId}`)) delete checklist[key];
+  });
+  saveAll();
+  render();
 }
 
 function exportCsv() {
@@ -3082,6 +3119,12 @@ document.getElementById("myUnitChecklist").addEventListener("change", handleChec
 document.getElementById("selectedUnitChecklist").addEventListener("input", handleChecklistInput);
 document.getElementById("selectedUnitChecklist").addEventListener("change", handleChecklistInput);
 
+function handleChecklistItemDelete(event) {
+  const button = event.target.closest("[data-item-delete]");
+  if (!button) return;
+  deleteChecklistItem(button.dataset.itemDelete);
+}
+
 async function handleProofUpload(event) {
   const input = event.target.closest("[data-proof-upload]");
   if (!input) return;
@@ -3129,6 +3172,8 @@ function handleProofApproval(event) {
 
 document.getElementById("myUnitChecklist").addEventListener("change", handleProofUpload);
 document.getElementById("selectedUnitChecklist").addEventListener("change", handleProofUpload);
+document.getElementById("myUnitChecklist").addEventListener("click", handleChecklistItemDelete);
+document.getElementById("selectedUnitChecklist").addEventListener("click", handleChecklistItemDelete);
 document.getElementById("myUnitChecklist").addEventListener("click", handleProofApproval);
 document.getElementById("selectedUnitChecklist").addEventListener("click", handleProofApproval);
 
@@ -3173,6 +3218,11 @@ document.getElementById("itemsTable").addEventListener("change", async (event) =
 });
 
 document.getElementById("itemsTable").addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("[data-item-delete]");
+  if (deleteButton) {
+    deleteChecklistItem(deleteButton.dataset.itemDelete);
+    return;
+  }
   const photoButton = event.target.closest("[data-view-item-photo]");
   if (photoButton) {
     openItemPhoto(photoButton.dataset.viewItemPhoto);
