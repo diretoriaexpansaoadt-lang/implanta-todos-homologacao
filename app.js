@@ -1714,6 +1714,7 @@ function render() {
   if (!canView(currentView)) currentView = fallbackView();
   applyPermissions();
   renderActiveUserSelect();
+  renderDashboardUnitFilter();
   renderFilters();
   renderDashboard();
   if (currentView === "items") renderItemsTable();
@@ -1758,6 +1759,17 @@ function renderActiveUserSelect() {
     .join("");
   select.value = users.some((user) => user.id === current && user.active) ? current : currentUser()?.id;
   select.disabled = !canSwitchUsers;
+}
+
+function renderDashboardUnitFilter() {
+  const select = document.getElementById("dashboardUnitFilter");
+  if (!select) return;
+  const allowed = can("viewAllUnits");
+  select.hidden = !allowed;
+  if (!allowed) return;
+  const active = operationalUnits();
+  select.innerHTML = `<option value="">Todas as unidades</option>` + active.map((unit) => `<option value="${escapeHtml(unit.id)}">${escapeHtml(unit.name)}</option>`).join("");
+  select.value = selectedUnitId || "";
 }
 
 function renderFilters() {
@@ -1812,7 +1824,7 @@ function renderDashboard() {
     toBuyCount: 0,
     boughtCount: 0,
   };
-  const metrics = can("viewAllUnits") ? allUnitsDashboardMetrics() : unit
+  const metrics = can("viewAllUnits") && selectedUnitId ? unitDashboardMetrics(selectedUnitId) : can("viewAllUnits") ? allUnitsDashboardMetrics() : unit
     ? (isImplementationArchived(unit) ? emptyMetrics : unitDashboardMetrics(unit.id))
     : {
     plannedInvestment: sum(items, totalOf),
@@ -3034,6 +3046,11 @@ document.getElementById("activeUserSelect").addEventListener("change", (event) =
   if (!canView(currentView)) currentView = fallbackView();
   render();
 });
+document.getElementById("dashboardUnitFilter")?.addEventListener("change", (event) => {
+  selectedUnitId = event.target.value;
+  localStorage.setItem(SELECTED_UNIT_STORAGE_KEY, selectedUnitId);
+  renderDashboard();
+});
 document.getElementById("importJsonInput").addEventListener("change", (event) => {
   const file = event.target.files?.[0];
   if (file) importJson(file);
@@ -3443,6 +3460,7 @@ function updateUserFromControl(event) {
   saveUsers();
   saveRemoteState();
   renderActiveUserSelect();
+  renderDashboardUnitFilter();
   renderPermissionsMatrix();
   if (field === "role") renderUsersTable();
 }
