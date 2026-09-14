@@ -4,12 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Implanta TODOS | Audição de TODOS</title>
-    <link rel="stylesheet" href="./styles.css?v=20260914b" />
+    <link rel="stylesheet" href="./styles.css?v=20260914c" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen">
       <form id="loginForm" class="login-card">
-        <img class="login-logo" src="./assets/logo-adt.png?v=20260914b" alt="Audição de Todos" />
+        <img class="login-logo" src="./assets/logo-adt.png?v=20260914c" alt="Audição de Todos" />
         <h1>Implanta TODOS</h1>
         <p class="login-brand-subtitle">Audição de TODOS</p>
         <p id="loginInstruction">Acesse com o e-mail e senha cadastrados.</p>
@@ -33,7 +33,7 @@
     <div class="app-shell">
       <aside id="appSidebar" class="sidebar">
         <div class="brand">
-          <img class="brand-logo" src="./assets/logo-adt.png?v=20260914b" alt="Audição de Todos" />
+          <img class="brand-logo" src="./assets/logo-adt.png?v=20260914c" alt="Audição de Todos" />
           <div>
             <h1>Implanta TODOS</h1>
             <p>Audição de TODOS</p>
@@ -77,8 +77,9 @@
             <label class="user-switch">
               <span>Usuário</span>
               <select id="activeUserSelect"></select>
+              <select id="dashboardUnitFilter" aria-label="Unidade do dashboard"></select>
             </label>
-            <div class="saved-state" id="savedState">Salvo localmente</div>
+            <div class="saved-state" id="savedState">Aguardando sincronização</div>
             <button id="saveBtn" class="primary-button">Salvar</button>
             <button id="logoutBtn" class="ghost-button">Sair</button>
           </div>
@@ -348,7 +349,7 @@
             <section class="panel wide-users">
               <div class="panel-head">
                 <h3>Usuários cadastrados</h3>
-                <p class="panel-helper">Use “Copiar 1º acesso” para colar o link, login e senha no WhatsApp ou e-mail.</p>
+                <p class="panel-helper">Use “Copiar convite de 1º acesso” para enviar o link ao usuário por WhatsApp ou e-mail.</p>
               </div>
               <div class="table-wrap users-table-wrap">
                 <table class="data-table users-table" id="usersTable">
@@ -400,7 +401,7 @@
             <span class="modal-eyebrow">Como providenciar</span>
             <h3 id="documentGuidanceTitle">Orientação do documento</h3>
           </div>
-          <button class="image-modal-close" type="button" data-close-document-guidance title="Fechar">Ã—</button>
+          <button class="image-modal-close" type="button" data-close-document-guidance title="Fechar">×</button>
         </div>
         <textarea id="documentGuidanceText" class="guidance-text" rows="10" aria-label="Texto de orientação"></textarea>
         <div class="guidance-modal-footer">
@@ -433,6 +434,6 @@
     </div>
 
     <script src="./data.js"></script>
-    <script src="./app.js?v=20260914b"></script>
+    <script src="./app.js?v=20260914c"></script>
   </body>
 </html>
