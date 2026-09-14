@@ -567,7 +567,22 @@ async function runAlerts() {
   return { checkedAt: new Date().toISOString(), attempts: results.length, results };
 }
 
+function invitationOrigin() {
+  try {
+    const url = new URL(config.publicAppUrl);
+    const host = url.hostname.toLowerCase().replace(/\.$/, "");
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname !== "/" ||
+        !host.includes(".") || require("net").isIP(host) || host.startsWith("[") || /(^|\.)(localhost|local|internal|test|invalid)$/.test(host)) throw new Error();
+    return url.origin;
+  } catch {
+    const error = new Error("Convites externos exigem a plataforma publicada com endereço HTTPS público. Acesse o ambiente publicado para cadastrar o usuário e gerar o convite.");
+    error.code = "PUBLIC_URL_REQUIRED";
+    throw error;
+  }
+}
+
 async function createFirstAccess(userId) {
+  const base = invitationOrigin();
   const state = getState();
   const user = state.users.find((candidate) => candidate.id === userId && candidate.active !== false);
   if (!user) throw new Error("Usuário não encontrado ou inativo.");
@@ -581,7 +596,6 @@ async function createFirstAccess(userId) {
   };
   user.mustChangePassword = true;
   await saveState(state);
-  const base = config.publicAppUrl || `http://127.0.0.1:${PORT}/`;
   return { user, link: `${base.replace(/\/$/, "")}/?firstAccess=${encodeURIComponent(token)}` };
 }
 
@@ -932,7 +946,7 @@ const server = http.createServer(async (req, res) => {
     serveStatic(req, res);
   } catch (error) {
     console.error(error);
-    if (!res.headersSent) sendJson(res, error.code === "ENOENT" ? 404 : 500, { error: error.message || "Erro interno" });
+    if (!res.headersSent) sendJson(res, error.code === "PUBLIC_URL_REQUIRED" ? 503 : (error.code === "ENOENT" ? 404 : 500), { error: error.code === "PUBLIC_URL_REQUIRED" ? error.message : "Não foi possível concluir a operação." });
   }
 });
 
