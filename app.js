@@ -384,12 +384,9 @@ function loadUsers() {
       localStorage.removeItem(USERS_STORAGE_KEY);
     }
   }
-  return [
-    normalizeUser({ name: "Administrador", email: "admin@local", phone: "", password: "admin123", role: "Administrador", active: true }),
-    normalizeUser({ name: "Consultor de implantação", email: "consultor@local", phone: "", password: "consultor123", role: "Consultor de implantação", active: true }),
-    normalizeUser({ name: "Contabilidade", email: "contabilidade@local", phone: "", password: "contabilidade123", role: "Contabilidade", active: true }),
-    normalizeUser({ name: "Franqueado", email: "franqueado@local", phone: "", password: "franqueado123", role: "Franqueado", active: true }),
-  ];
+  // Usuários oficiais vêm exclusivamente da API. Nunca recrie contas de demonstração
+  // no navegador, pois isso pode mascarar falhas de autenticação ou ressurgir após logout.
+  return [];
 }
 
 function loadUnits() {
@@ -626,6 +623,7 @@ function saveUsers() {
 }
 
 function ensureAdministratorAccess() {
+  if (API_ENABLED) return;
   const adminEmail = "admin@local";
   let admin = users.find((user) => user.email.toLowerCase() === adminEmail);
   if (!admin) {
@@ -640,6 +638,7 @@ function ensureAdministratorAccess() {
 }
 
 function ensureAccountingAccess() {
+  if (API_ENABLED) return;
   const email = "contabilidade@local";
   let user = users.find((candidate) => candidate.email.toLowerCase() === email);
   if (!user) {
@@ -1277,7 +1276,8 @@ function applyAuthState() {
 }
 
 function configureLoginMode() {
-  const firstAccess = new URLSearchParams(window.location.search).has("firstAccess");
+  const loginParams = new URLSearchParams(window.location.search);
+  const firstAccess = loginParams.has("firstAccess") || loginParams.has("resetToken");
   document.getElementById("loginEmailLabel").hidden = firstAccess;
   document.getElementById("loginEmailInput").required = !firstAccess;
   document.getElementById("loginPasswordConfirmLabel").hidden = !firstAccess;
@@ -1411,7 +1411,7 @@ function alertText(item) {
 function saveItems() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   const state = document.getElementById("savedState");
-  state.textContent = "Salvo localmente";
+  state.textContent = API_ENABLED ? "Sincronizando com o servidor…" : "Rascunho local";
   state.style.color = "#64748b";
 }
 
@@ -1520,14 +1520,23 @@ async function refreshRemoteState() {
 
 async function saveRemoteState() {
   if (!API_ENABLED) return false;
+  const stateLabel = document.getElementById("savedState");
   try {
     const response = await apiFetch("/api/state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(appState()),
     });
+    if (stateLabel) {
+      stateLabel.textContent = response.ok ? "Sincronizado com o servidor" : "Falha ao sincronizar";
+      stateLabel.style.color = response.ok ? "#15803d" : "#b91c1c";
+    }
     return response.ok;
   } catch {
+    if (stateLabel) {
+      stateLabel.textContent = "Servidor indisponível — alterações não sincronizadas";
+      stateLabel.style.color = "#b91c1c";
+    }
     return false;
   }
 }
@@ -2637,7 +2646,7 @@ function renderUsersTable() {
       <td><span class="password-protected">Protegida no servidor</span></td>
       <td><span class="badge ${user.active ? "done" : "cancel"}">${user.active ? "Ativo" : "Inativo"}</span></td>
       <td>
-        <button class="ghost-button small-action" data-user-action="copy-access" title="Copiar link, login e senha para enviar">Copiar 1º acesso</button>
+        <button class="ghost-button small-action" data-user-action="copy-access" title="Copiar convite de primeiro acesso">Copiar convite de 1º acesso</button>
         <button class="ghost-button small-action" data-user-action="invite">Enviar acesso</button>
         <button class="ghost-button small-action" data-user-action="toggle">${user.active ? "Desativar" : "Ativar"}</button>
         <button class="ghost-button small-action" data-user-action="impersonate" ${user.active ? "" : "disabled"}>Usar</button>
@@ -2838,7 +2847,12 @@ function csvCell(value) {
 }
 
 function importJson(file) {
+  const actor = authenticatedUser();
+  if (API_ENABLED && actor?.role !== "Administrador") {
+    return alert("A importação da base é exclusiva do Administrador Master.");
+  }
   if (!can("editItems")) return alert("Seu perfil não permite importar dados.");
+  if (!window.confirm("Importar esta base pode substituir dados operacionais. Faça um backup antes de continuar. Deseja prosseguir?")) return;
   const reader = new FileReader();
   reader.onload = () => {
     try {
@@ -2918,7 +2932,8 @@ window.addEventListener("resize", () => {
 window.addEventListener("resize", fitKpiValues);
 document.getElementById("loginForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const firstAccessToken = new URLSearchParams(window.location.search).get("firstAccess");
+  const loginParams = new URLSearchParams(window.location.search);
+  const firstAccessToken = loginParams.get("firstAccess") || loginParams.get("resetToken");
   const email = document.getElementById("loginEmailInput").value.trim().toLowerCase();
   const password = document.getElementById("loginPasswordInput").value;
   const message = document.getElementById("loginMessage");
@@ -2981,6 +2996,17 @@ document.getElementById("loginForm").addEventListener("submit", async (event) =>
   currentView = fallbackView();
   applyAuthState();
   render();
+});
+
+document.getElementById("forgotPasswordBtn")?.addEventListener("click", async () => {
+  const email = document.getElementById("loginEmailInput").value.trim();
+  const message = document.getElementById("loginMessage");
+  if (!email) { message.textContent = "Informe seu e-mail para receber o link de recuperação."; return; }
+  try {
+    const response = await apiFetch("/api/auth/forgot-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+    const result = await response.json();
+    message.textContent = response.ok ? (result.debugLink ? `Link de recuperação (ambiente local): ${result.debugLink}` : "Se o e-mail estiver cadastrado, enviaremos um link de recuperação.") : "Não foi possível solicitar a recuperação.";
+  } catch { message.textContent = "Não foi possível conectar ao servidor."; }
 });
 document.getElementById("logoutBtn").addEventListener("click", async () => {
   if (API_ENABLED) await apiFetch("/api/auth/logout", { method: "POST" }).catch(() => {});

@@ -68,6 +68,7 @@ button, input, select {
   width: 190px;
   max-width: 100%;
   justify-self: center;
+  animation: logo-breathe 7s ease-in-out infinite;
 }
 
 .login-card h1 {
@@ -140,6 +141,17 @@ button, input, select {
   object-fit: contain;
   filter: drop-shadow(0 0 12px rgba(24, 191, 210, 0.45));
   flex: 0 0 auto;
+  animation: logo-breathe 7s ease-in-out infinite;
+}
+
+@keyframes logo-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.012); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-logo,
+  .brand-logo { animation: none; }
 }
 
 .brand h1 {
@@ -195,6 +207,10 @@ button, input, select {
 .ghost-button,
 .primary-button,
 .danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 1px solid var(--line);
   border-radius: 8px;
   min-height: 38px;
@@ -202,11 +218,23 @@ button, input, select {
   cursor: pointer;
   background: #fff;
   color: var(--ink);
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
 }
 
 .sidebar .ghost-button {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.sidebar .ghost-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
   color: #fff;
 }
 
@@ -223,9 +251,27 @@ button, input, select {
 }
 
 .danger-button {
-  background: rgba(255, 45, 45, 0.14);
-  border-color: rgba(255, 45, 45, 0.45);
-  color: #ffd7d7;
+  background: #fff1f1;
+  border-color: #ff9b9b;
+  color: #c61f1f;
+}
+
+.danger-button:hover {
+  background: #ffe2e2;
+  border-color: var(--red);
+  color: #9f1515;
+}
+
+.ghost-button:hover {
+  background: #eef8fa;
+  border-color: rgba(24, 191, 210, 0.45);
+  color: var(--navy);
+}
+
+.ghost-button:active,
+.primary-button:active,
+.danger-button:active {
+  transform: translateY(1px);
 }
 
 button:disabled,
@@ -1006,7 +1052,8 @@ select,
 .small-action {
   min-height: 30px;
   padding: 0 9px;
-  margin-right: 6px;
+  margin-right: 0;
+  font-size: 12px;
 }
 
 .completion-banner,
@@ -2005,10 +2052,21 @@ select,
 }
 
 .checklist-actions {
-  display: grid;
-  grid-template-columns: auto minmax(180px, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.checklist-actions .check-note {
+  flex: 1 1 240px;
+  order: 1;
+}
+
+.checklist-actions .supplier-link,
+.checklist-actions .danger-button {
+  flex: 0 0 auto;
+  order: 2;
 }
 
 .check-note {
@@ -2149,7 +2207,6 @@ select,
   .users-layout,
   .permissions-grid,
   .unit-header,
-  .checklist-actions,
   .dashboard-unit-row {
     grid-template-columns: 1fr;
   }
@@ -2360,7 +2417,15 @@ select,
   }
 
   .checklist-actions {
-    grid-template-columns: 1fr;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .checklist-actions .check-note,
+  .checklist-actions .supplier-link,
+  .checklist-actions .danger-button {
+    flex-basis: auto;
+    width: 100%;
   }
 
   .proof-cell {

@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const { loadConfig } = require("./lib/config");
 const { createRepository } = require("./lib/repository");
 const { createStorage } = require("./lib/storage");
+const { publicOrigin } = require("./lib/public-url");
 const {
   hashPassword,
   verifyPassword,
@@ -26,6 +27,7 @@ const LOG_FILE = path.join(DATA_DIR, "notification-log.json");
 const repository = createRepository(config);
 const storage = createStorage(config);
 const loginAttempts = new Map();
+let stateWriteQueue = Promise.resolve();
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -163,7 +165,10 @@ async function saveState(state) {
     password: undefined,
     senha: undefined,
   }));
-  await repository.save(clean);
+  // Serializa gravações para evitar que requisições concorrentes percam alterações.
+  const write = stateWriteQueue.then(() => repository.save(clean));
+  stateWriteQueue = write.catch(() => {});
+  await write;
   return clean;
 }
 
@@ -217,11 +222,9 @@ function synchronizeUsers(currentUsers, incomingUsers, actor) {
       ...incoming,
       passwordHash: current.passwordHash || "",
     };
-    const suppliedPassword = incoming.password || incoming.senha || "";
-    if (suppliedPassword) {
-      next.passwordHash = hashPassword(suppliedPassword);
-      next.mustChangePassword = true;
-    }
+    // Senhas nunca são aceitas pelo payload de sincronização administrativa.
+    // O usuário define a própria senha exclusivamente pelo convite de primeiro acesso.
+    if (!current.passwordHash) next.mustChangePassword = true;
     delete next.password;
     delete next.senha;
     return next;
@@ -567,25 +570,15 @@ async function runAlerts() {
   return { checkedAt: new Date().toISOString(), attempts: results.length, results };
 }
 
-function invitationOrigin() {
-  try {
-    const url = new URL(config.publicAppUrl);
-    const host = url.hostname.toLowerCase().replace(/\.$/, "");
-    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname !== "/" ||
-        !host.includes(".") || require("net").isIP(host) || host.startsWith("[") || /(^|\.)(localhost|local|internal|test|invalid)$/.test(host)) throw new Error();
-    return url.origin;
-  } catch {
-    const error = new Error("Convites externos exigem a plataforma publicada com endereço HTTPS público. Acesse o ambiente publicado para cadastrar o usuário e gerar o convite.");
-    error.code = "PUBLIC_URL_REQUIRED";
-    throw error;
-  }
-}
-
 async function createFirstAccess(userId) {
-  const base = invitationOrigin();
+  const base = publicOrigin(config.publicAppUrl);
   const state = getState();
   const user = state.users.find((candidate) => candidate.id === userId && candidate.active !== false);
   if (!user) throw new Error("Usuário não encontrado ou inativo.");
+  // Um novo convite invalida convites anteriores para este usuário.
+  state.authTokens = Object.fromEntries(
+    Object.entries(state.authTokens || {}).filter(([, record]) => !(record.type === "first-access" && record.userId === user.id))
+  );
   const token = createOpaqueToken();
   state.authTokens[hashToken(token, config.sessionSecret)] = {
     userId: user.id,
@@ -753,7 +746,7 @@ async function completeFirstAccess(req, res, payload) {
   const state = getState();
   const tokenHash = hashToken(token, config.sessionSecret);
   const record = state.authTokens[tokenHash];
-  if (!record || record.type !== "first-access" || new Date(record.expiresAt).getTime() < Date.now()) {
+  if (!record || !["first-access", "password-reset"].includes(record.type) || new Date(record.expiresAt).getTime() < Date.now()) {
     return sendJson(res, 400, { error: "Link inválido ou expirado. Solicite um novo primeiro acesso." });
   }
   const user = state.users.find((candidate) => candidate.id === record.userId && candidate.active !== false);
@@ -764,6 +757,22 @@ async function completeFirstAccess(req, res, payload) {
   await saveState(state);
   await audit(req, user, "auth.first_access_completed", {});
   return sendJson(res, 200, { ok: true });
+}
+
+async function requestPasswordReset(req, res, payload) {
+  const email = String(payload.email || "").trim().toLowerCase();
+  const state = getState();
+  const user = state.users.find((candidate) => candidate.active !== false && String(candidate.email || "").toLowerCase() === email);
+  let debugLink = "";
+  if (user && user.email && (!String(user.email).endsWith("@local") || !config.productionLike)) {
+    const token = createOpaqueToken();
+    state.authTokens[hashToken(token, config.sessionSecret)] = { userId: user.id, type: "password-reset", expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), createdAt: new Date().toISOString(), secretFingerprint: hashToken("secret-fingerprint", config.sessionSecret).slice(0, 16) };
+    await saveState(state);
+    const link = `${(config.publicAppUrl || `http://127.0.0.1:${PORT}/`).replace(/\/$/, "")}/?resetToken=${encodeURIComponent(token)}`;
+    debugLink = link;
+    if (!String(user.email).endsWith("@local")) await sendEmail(user.email, "Recuperação de senha — Implanta TODOS", `Crie uma nova senha pelo link (válido por 1 hora):\n${link}`);
+  }
+  return sendJson(res, 200, { ok: true, ...(config.productionLike || !debugLink ? {} : { debugLink }) });
 }
 
 function applySecurityHeaders(req, res) {
@@ -844,6 +853,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (route === "/api/auth/first-access" && req.method === "POST") {
       return completeFirstAccess(req, res, JSON.parse(await readBody(req)));
+    }
+    if (route === "/api/auth/forgot-password" && req.method === "POST") {
+      return requestPasswordReset(req, res, JSON.parse(await readBody(req)));
     }
     if (route === "/api/auth/me" && req.method === "GET") {
       const user = requireAuthentication(req, res);
@@ -946,7 +958,14 @@ const server = http.createServer(async (req, res) => {
     serveStatic(req, res);
   } catch (error) {
     console.error(error);
-    if (!res.headersSent) sendJson(res, error.code === "PUBLIC_URL_REQUIRED" ? 503 : (error.code === "ENOENT" ? 404 : 500), { error: error.code === "PUBLIC_URL_REQUIRED" ? error.message : "Não foi possível concluir a operação." });
+    if (!res.headersSent) {
+      if (error.code === "PUBLIC_URL_REQUIRED") return sendJson(res, 503, { error: error.message });
+      const status = error.code === "ENOENT" ? 404 : 500;
+      const message = status === 404
+        ? "Recurso não encontrado."
+        : (config.productionLike ? "Não foi possível concluir a operação. Tente novamente." : (error.message || "Erro interno"));
+      sendJson(res, status, { error: message });
+    }
   }
 });
 
