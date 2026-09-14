@@ -2483,3 +2483,7 @@ select,
     transition: none;
   }
 }
+
+/* Login: honor conditional fields and style recovery action. */
+.login-card label[hidden] { display: none; }
+.login-card .link-button { background: transparent; border: 0; color: var(--teal-dark); cursor: pointer; padding: 8px; text-decoration: underline; }
