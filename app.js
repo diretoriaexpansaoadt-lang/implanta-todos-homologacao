@@ -404,6 +404,10 @@ function loadUnits() {
 
 function normalizeUnit(unit) {
   return {
+    plannedOpeningDate: unit.plannedOpeningDate || "",
+    documentLeadDays: unit.documentLeadDays ?? "",
+    adjustedOpeningDate: unit.adjustedOpeningDate || "",
+    openingDelayDays: unit.openingDelayDays || 0,
     id: unit.id || crypto.randomUUID(),
     name: unit.name || unit.nome || "Unidade sem nome",
     city: unit.city || "",
@@ -1169,6 +1173,12 @@ async function dispatchNotificationEmail(notification) {
 }
 
 function unitOpeningForecast(unitId) {
+  const scheduledUnit = units.find(row => row.id === unitId);
+  if (scheduledUnit?.plannedOpeningDate) {
+    const forecast = OpeningSchedule.forecast(appState(), scheduledUnit);
+    return { date: forecast.date, className: forecast.delay ? "overdue" : "ok",
+      label: `Previsão ${formatDate(forecast.date)}${forecast.delay ? ` · atraso de ${forecast.delay} dia(s)` : ""}${forecast.missing ? ` · ${forecast.missing} prazo(s) a definir` : ""}` };
+  }
   const progress = unitProgress(unitId);
   if (!progress.total) return { label: "Sem itens para prever", date: "", className: "nodate" };
   if (!progress.open) return { label: "Pronta para inaugurar", date: todayIso(), className: "ready" };
@@ -1435,6 +1445,7 @@ function markDirty() {
 }
 
 function appState() {
+  refreshOpeningSchedule();
   return {
     exportedAt: new Date().toISOString(),
     activeUserId,
@@ -1449,6 +1460,36 @@ function appState() {
     notifications,
     milestones,
   };
+}
+
+function refreshOpeningSchedule() {
+  OpeningSchedule.apply({ items, units, checklist, documents });
+}
+
+function requestOpeningPlan() {
+  const answer = prompt("Previsão de inauguração (DD/MM/AAAA):");
+  if (answer === null) return null;
+  const date = normalizeDate(answer.trim());
+  if (!OpeningSchedule.validDate(date) || date < OpeningSchedule.today()) {
+    alert("Informe uma data válida de hoje em diante."); return null;
+  }
+  const documentDays = prompt("Quantos dias ANTES da inauguração os documentos sem prazo definido devem vencer? (O alerta será enviado 3 dias antes do vencimento.)");
+  if (documentDays === null) return null;
+  const days = OpeningSchedule.lead(documentDays);
+  if (days === null) { alert("Informe a antecedência dos documentos em dias, por exemplo: 15."); return null; }
+  return { plannedOpeningDate: date, documentLeadDays: days };
+}
+
+function renderOpeningNotice() {
+  const panel = document.getElementById("openingScheduleNotice");
+  if (!panel) return;
+  const context = can("viewAllUnits") ? operationalUnits().filter(unit => !selectedUnitId || unit.id === selectedUnitId) : [currentUnit()].filter(Boolean);
+  panel.innerHTML = context.filter(unit => unit.plannedOpeningDate).map(unit => {
+    const info = OpeningSchedule.forecast(appState(), unit);
+    const soon = info.tasks.filter(task => !task.done && task.due && OpeningSchedule.distance(task.due, OpeningSchedule.today()) >= 0 && OpeningSchedule.distance(task.due, OpeningSchedule.today()) <= 3);
+    return `<div class="form-note"><strong>${escapeHtml(unit.name)} · Inauguração prevista: ${formatDate(info.date)}</strong><br>Data planejada: ${formatDate(info.planned)}.${info.delay ? ` Atenção: atraso de ${info.delay} dia(s) no cronograma afeta a previsão de inauguração.` : ""}${soon.length ? ` ${soon.length} prazo(s) vencem nos próximos 3 dias: ${soon.map(task => `${escapeHtml(task.name)} (${formatDate(task.due)})`).join(", ")}.` : ""}${info.missing ? ` ${info.missing} item(ns) sem prazo: defina a antecedência para completar o cronograma.` : ""}</div>`;
+  }).join("");
+  panel.hidden = !panel.innerHTML;
 }
 
 function applyAppState(state) {
@@ -1711,6 +1752,7 @@ function closeMobileNavigation() {
 }
 
 function render() {
+  refreshOpeningSchedule();
   if (!canView(currentView)) currentView = fallbackView();
   applyPermissions();
   renderActiveUserSelect();
@@ -1811,6 +1853,8 @@ function unique(values) {
 }
 
 function renderDashboard() {
+  refreshOpeningSchedule();
+  renderOpeningNotice();
   const pending = items.filter(isPending);
   const alerts = items.map(alertInfo);
   const unit = currentUnit();
@@ -2400,6 +2444,8 @@ function renderUnits() {
     ? `${selectedUnit.name} · ${unitOwnerName(selectedUnit)}`
     : "Selecione uma unidade";
   const forecast = selectedUnit ? unitOpeningForecast(selectedUnit.id) : null;
+  const scheduleButton = document.getElementById("editOpeningPlanBtn");
+  if (scheduleButton) scheduleButton.hidden = !selectedUnit || !can("manageUnits") || isImplementationArchived(selectedUnit);
   const selectedForecast = document.getElementById("selectedUnitForecast");
   selectedForecast.textContent = forecast ? forecast.label : "Previsão em análise";
   selectedForecast.className = `unit-forecast-text ${forecast?.className || ""}`;
@@ -3101,15 +3147,34 @@ document.getElementById("unitsSearchInput").addEventListener("input", renderUnit
 document.getElementById("selectedUnitCategoryFilter").addEventListener("input", renderUnits);
 document.getElementById("addChecklistItemBtn")?.addEventListener("click", addChecklistItemFromPrompt);
 document.getElementById("addSelectedChecklistItemBtn")?.addEventListener("click", addChecklistItemFromPrompt);
-document.getElementById("createUnitBtn").addEventListener("click", () => {
+document.getElementById("createUnitBtn").addEventListener("click", async () => {
   if (!can("manageUnits")) return alert("Seu perfil não permite criar unidades.");
   const name = prompt("Nome da nova unidade:");
   if (!name || !name.trim()) return;
+  if (units.some(unit => unit.name.toLowerCase() === name.trim().toLowerCase())) return alert("Já existe uma unidade com esse nome.");
+  const plan = requestOpeningPlan();
+  if (!plan) return;
   const unit = createUnit(name.trim());
+  Object.assign(unit, plan);
+  refreshOpeningSchedule();
   selectedUnitId = unit.id;
   saveUnits();
   localStorage.setItem(SELECTED_UNIT_STORAGE_KEY, selectedUnitId);
   render();
+  await saveRemoteState();
+});
+
+document.getElementById("editOpeningPlanBtn")?.addEventListener("click", async () => {
+  if (!can("manageUnits")) return;
+  const unit = units.find(row => row.id === selectedUnitId && row.active);
+  if (!unit || isImplementationArchived(unit)) return;
+  const plan = requestOpeningPlan();
+  if (!plan) return;
+  Object.assign(unit, plan);
+  refreshOpeningSchedule();
+  saveUnits();
+  render();
+  if (!await saveRemoteState()) alert("Não foi possível salvar o cronograma no servidor. Tente novamente.");
 });
 
 document.getElementById("unitsOverview").addEventListener("click", (event) => {
@@ -3410,7 +3475,10 @@ document.getElementById("userForm").addEventListener("submit", async (event) => 
     if (selectedUnit?.franchiseeUserId) {
       return alert("A unidade selecionada já está vinculada a outro franqueado.");
     }
+    const plan = selectedUnit ? null : requestOpeningPlan();
+    if (!selectedUnit && !plan) return;
     const unit = selectedUnit || createUnit(unitName || `Unidade ${name}`, user.id);
+    if (plan) Object.assign(unit, plan);
     linkFranchiseeToUnit(user, unit.id);
     saveUnits();
   } else {
@@ -3436,13 +3504,17 @@ function updateUserFromControl(event) {
   const user = users.find((candidate) => candidate.id === row.dataset.userId);
   if (!user) return;
   const field = control.dataset.userField;
+  const previousRole = user.role;
   user[field] = control.value;
   if (field === "role") {
     if (isGlobalUnitRole(user.role)) {
       linkFranchiseeToUnit({ ...user, role: "Franqueado" }, "");
       user.unitId = "";
     } else if (user.role === "Franqueado" && !user.unitId) {
+      const plan = requestOpeningPlan();
+      if (!plan) { user.role = previousRole; renderUsersTable(); return; }
       const unit = createUnit(`Unidade ${user.name}`, user.id);
+      Object.assign(unit, plan);
       linkFranchiseeToUnit(user, unit.id);
     }
     saveUnits();

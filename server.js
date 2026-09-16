@@ -2,6 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const OpeningSchedule = require("./schedule");
 const { loadConfig } = require("./lib/config");
 const { createRepository } = require("./lib/repository");
 const { createStorage } = require("./lib/storage");
@@ -144,6 +145,7 @@ function getState() {
 }
 
 async function saveState(state) {
+  OpeningSchedule.apply(state);
   const clean = {
     exportedAt: new Date().toISOString(),
     activeUserId: state.activeUserId || "",
@@ -533,12 +535,42 @@ async function sendWhatsapp(to, body) {
 }
 
 async function runAlerts() {
-  const state = getState();
+  const state = await saveState(getState());
   const log = readJson(LOG_FILE, {});
   const alertLabels = new Set(["Vencido", "Vence hoje", "Próx. 7 dias", "Próx. 30 dias"]);
   const results = [];
 
-  for (const unit of state.units.filter((candidate) => candidate.active !== false && !candidate.implementationArchivedAt)) {
+  const pendingOpeningAlerts = [];
+  for (const unit of state.units.filter(unit => unit.active !== false && !unit.implementationArchivedAt && unit.plannedOpeningDate)) {
+    const info = OpeningSchedule.forecast(state, unit);
+    for (const task of info.tasks) {
+      if (task.done || !task.due) continue;
+      const remaining = OpeningSchedule.distance(task.due, OpeningSchedule.today());
+      if (remaining > 3) continue;
+      const alert = remaining < 0 ? `Atrasado há ${-remaining} dia(s)` : remaining === 0 ? "Vence hoje" : `Vence em ${remaining} dia(s)`;
+      const subject = `Cronograma de inauguração - ${unit.name}`;
+      const body = `${unit.name}: ${task.name}. ${alert}. Vencimento: ${task.due}. Inauguração planejada: ${info.planned}. Previsão atualizada: ${info.date}.${info.delay ? ` O atraso no cronograma deslocou a previsão em ${info.delay} dia(s).` : ""}`;
+      for (const user of recipientsForUnit(state, unit)) {
+        for (const channel of ["email", "whatsapp"]) {
+          const key = `opening::${OpeningSchedule.today()}::${task.key}::${task.due}::${user.id}::${channel}`;
+          if (!log[key]?.result?.sent) pendingOpeningAlerts.push({ key, unit, user, channel, subject, body });
+        }
+      }
+    }
+  }
+  for (const entry of pendingOpeningAlerts) {
+    const { user, channel, subject, body, key, unit } = entry;
+    const result = channel === "email" && user.email && !user.email.endsWith("@local")
+      ? await sendEmail(user.email, subject, body)
+      : channel === "whatsapp" && user.phone ? await sendWhatsapp(user.phone, body)
+      : { sent: false, reason: "Contato não cadastrado" };
+    log[key] = { at: new Date().toISOString(), result };
+    const record = { channel, unitId: unit.id, userId: user.id, type: "opening-schedule", result };
+    results.push(record);
+    appendOutbox(record);
+  }
+
+  for (const unit of state.units.filter((candidate) => candidate.active !== false && !candidate.implementationArchivedAt && !candidate.plannedOpeningDate)) {
     for (const item of state.items) {
       const id = item.id || item.linha || itemName(item);
       const info = alertInfo(item);
@@ -818,7 +850,7 @@ function readBody(req) {
 function serveStatic(req, res) {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname);
-  const publicFiles = new Set(["/index.html", "/app.js", "/styles.css", "/data.js", "/assets/logo-adt.png"]);
+  const publicFiles = new Set(["/index.html", "/app.js", "/schedule.js", "/styles.css", "/data.js", "/assets/logo-adt.png"]);
   if (!publicFiles.has(pathname)) {
     res.writeHead(403);
     res.end("Forbidden");
