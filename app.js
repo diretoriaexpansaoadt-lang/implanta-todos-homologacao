@@ -847,9 +847,9 @@ function itemNameControl(item) {
   const photo = itemPhoto(item.id);
   const name = item.item || "Item sem nome";
   if (!assetUrl(photo)) {
-    return `<span class="item-name-text">${escapeHtml(name)}</span>`;
+    return `<span class="item-name-text" title="${escapeAttr(name)}">${escapeHtml(name)}</span>`;
   }
-  return `<button class="item-name-button" type="button" data-view-item-photo="${escapeHtml(item.id)}" title="Ver foto do produto">${escapeHtml(name)}</button>`;
+  return `<button class="item-name-button" type="button" data-view-item-photo="${escapeHtml(item.id)}" title="${escapeAttr(name)} — Ver foto do produto">${escapeHtml(name)}</button>`;
 }
 
 function itemPhotoControls(item) {
@@ -2049,7 +2049,7 @@ function renderItemsTable() {
     return `
     <tr data-id="${escapeHtml(item.id)}">
       <td>${escapeHtml(scoped.categoria)}</td>
-      <td>${canEditUnitParams ? `<input class="cell-input" data-field="item" value="${escapeAttr(scoped.item)}" />` : itemNameControl(item)}</td>
+      <td>${canEditUnitParams ? `<input class="cell-input" data-field="item" value="${escapeAttr(scoped.item)}" title="${escapeAttr(scoped.item)}" />` : itemNameControl(scoped)}</td>
       <td>${itemPhotoControls(item)}</td>
       <td><input class="cell-input" data-field="fornecedor" value="${escapeAttr(scoped.fornecedor)}" ${baseDisabled} /></td>
       <td><div class="link-cell"><input class="cell-input" data-field="fornecedorLink" type="url" placeholder="https://..." value="${escapeAttr(scoped.fornecedorLink)}" ${baseDisabled} />${supplierLink(scoped, "Abrir")}</div></td>
@@ -3288,6 +3288,7 @@ document.getElementById("selectedUnitChecklist").addEventListener("click", handl
 function handleItemsTableEdit(event) {
   const control = event.target.closest("[data-field]");
   if (!control) return;
+  if (control.dataset.field === "item") control.title = control.value;
   const row = event.target.closest("tr");
   updateItem(row.dataset.id, control.dataset.field, control.value);
   if (control.dataset.field === "valor" || control.dataset.field === "quantidade") {
