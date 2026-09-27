@@ -190,7 +190,7 @@ const ROLE_PERMISSIONS = {
     changeStatus: true,
   },
   "Franqueado": {
-    views: ["dashboard", "items", "pending", "purchases", "myUnit", "documents"],
+    views: ["dashboard", "myUnit", "pending", "documents"],
     editItems: false,
     manageUsers: false,
     manageUnits: false,
@@ -942,7 +942,7 @@ function setDocumentEntry(unitId, documentId, patch) {
     saveUnits();
   }
   saveDocuments();
-  saveRemoteState();
+  return saveRemoteState();
 }
 
 function allDocumentsApproved(unitId) {
@@ -1654,7 +1654,7 @@ function isPending(item) {
 
 function isPendingForUnit(item, unitId) {
   if (unitId && unitItemStatus(unitId, item) === "Comprado") return false;
-  return isPending(item);
+  return isPending(itemForUnit(item, unitId));
 }
 
 function pendingReasons(item) {
@@ -1774,6 +1774,7 @@ function applyPermissions() {
   document.querySelectorAll(".nav-item").forEach((btn) => {
     const allowed = canView(btn.dataset.view);
     btn.hidden = !allowed;
+    btn.style.order = currentUser()?.role === "Franqueado" ? String(currentPermissions().views.indexOf(btn.dataset.view)) : "";
   });
   document.querySelectorAll(".nav-item").forEach((btn) => btn.classList.toggle("is-active", btn.dataset.view === currentView));
   document.querySelectorAll(".view").forEach((section) => section.classList.toggle("is-visible", section.id === `${currentView}View`));
@@ -2050,6 +2051,7 @@ function renderItemsTable() {
     <tr data-id="${escapeHtml(item.id)}">
       <td>${escapeHtml(scoped.categoria)}</td>
       <td>${canEditUnitParams ? `<input class="cell-input" data-field="item" value="${escapeAttr(scoped.item)}" title="${escapeAttr(scoped.item)}" />` : itemNameControl(scoped)}</td>
+      <td><textarea class="cell-input item-description" data-field="descricao" rows="2" aria-label="Descrição do item" placeholder="Descrição do item" title="${escapeAttr(scoped.descricao || "")}" ${canEditUnitParams ? "" : "readonly"}>${escapeHtml(scoped.descricao || "")}</textarea></td>
       <td>${itemPhotoControls(item)}</td>
       <td><input class="cell-input" data-field="fornecedor" value="${escapeAttr(scoped.fornecedor)}" ${baseDisabled} /></td>
       <td><div class="link-cell"><input class="cell-input" data-field="fornecedorLink" type="url" placeholder="https://..." value="${escapeAttr(scoped.fornecedorLink)}" ${baseDisabled} />${supplierLink(scoped, "Abrir")}</div></td>
@@ -2080,9 +2082,10 @@ function supplierLink(item, label = "Comprar") {
 }
 
 function renderPending() {
+  document.getElementById("markSelectedDefBtn").hidden = currentUser()?.role === "Franqueado";
   const query = document.getElementById("pendingSearchInput").value.trim().toLowerCase();
   const unit = itemsContextUnit();
-  const rows = items.filter((item) => isPendingForUnit(item, unit?.id)).filter((item) => {
+  const rows = items.filter((item) => isPendingForUnit(item, unit?.id)).map((item) => itemForUnit(item, unit?.id)).filter((item) => {
     const hay = `${item.item} ${item.categoria} ${item.fornecedor} ${pendingReasons(item).join(" ")}`.toLowerCase();
     return !query || hay.includes(query);
   });
@@ -2303,11 +2306,13 @@ function renderChecklist(unitId, containerId, options = {}) {
         </label>
         <div class="checklist-main">
           <div class="checklist-title">
-            <strong>${escapeHtml(scoped.item || "Item sem nome")}</strong>
+            <strong>${itemNameControl(scoped)}</strong>
             <span class="badge ${statusClass(scoped.status)}">${escapeHtml(scoped.status)}</span>
             <span class="alert-pill ${alertInfo(scoped).className}">${escapeHtml(alertText(scoped))}</span>
           </div>
           <p>${escapeHtml(scoped.categoria)} · ${escapeHtml(scoped.fornecedor || "Sem fornecedor")} · ${money.format(totalOf(scoped))} · venc. ${escapeHtml(formatDate(scoped.vencimento) || "sem data")}</p>
+          <p class="checklist-description">${escapeHtml(scoped.descricao || "Descrição não informada.")}</p>
+          <p>Quantidade: ${escapeHtml(String(scoped.quantidade === "" ? "Não informada" : scoped.quantidade))} · Valor unitário: ${money.format(Number(scoped.valor) || 0)}</p>
           <div class="checklist-actions">
             ${supplierLink(scoped, "Comprar")}
             ${can("editItems") ? `<button class="danger-button small-action" type="button" data-item-delete="${escapeHtml(item.id)}">Excluir item</button>` : ""}
@@ -3228,6 +3233,8 @@ document.getElementById("selectedUnitChecklist").addEventListener("input", handl
 document.getElementById("selectedUnitChecklist").addEventListener("change", handleChecklistInput);
 
 function handleChecklistItemDelete(event) {
+  const photoButton = event.target.closest("[data-view-item-photo]");
+  if (photoButton) { openItemPhoto(photoButton.dataset.viewItemPhoto); return; }
   const button = event.target.closest("[data-item-delete]");
   if (!button) return;
   deleteChecklistItem(button.dataset.itemDelete);
@@ -3288,7 +3295,7 @@ document.getElementById("selectedUnitChecklist").addEventListener("click", handl
 function handleItemsTableEdit(event) {
   const control = event.target.closest("[data-field]");
   if (!control) return;
-  if (control.dataset.field === "item") control.title = control.value;
+  if (["item", "descricao"].includes(control.dataset.field)) control.title = control.value;
   const row = event.target.closest("tr");
   updateItem(row.dataset.id, control.dataset.field, control.value);
   if (control.dataset.field === "valor" || control.dataset.field === "quantidade") {
@@ -3422,6 +3429,14 @@ document.addEventListener("keydown", (event) => {
 document.getElementById("pendingList").addEventListener("change", (event) => {
   const checkbox = event.target.closest("[data-issue]");
   if (!checkbox) return;
+  if (currentUser()?.role === "Franqueado") {
+    const unit = currentUnit();
+    if (!unit || !can("updateOwnChecklist") || isImplementationArchived(unit)) return;
+    setChecklistEntry(unit.id, checkbox.dataset.issue, { done: checkbox.checked, status: checkbox.checked ? "Comprado" : "A Comprar" });
+    renderPending();
+    renderDashboard();
+    return;
+  }
   if (checkbox.checked) selectedIssues.add(checkbox.dataset.issue);
   else selectedIssues.delete(checkbox.dataset.issue);
 });
@@ -3430,7 +3445,11 @@ document.getElementById("markSelectedDefBtn").addEventListener("click", () => {
   if (!can("changeStatus")) return alert("Seu perfil não permite alterar status.");
   if (!selectedIssues.size) return;
   items.forEach((item) => {
-    if (selectedIssues.has(item.id)) item.status = "Cotando";
+    if (selectedIssues.has(item.id)) {
+      const unit = itemsContextUnit();
+      if (unit) setChecklistEntry(unit.id, item.id, { done: true, status: "Comprado" });
+      else item.status = "Comprado";
+    }
   });
   selectedIssues.clear();
   markDirty();
@@ -3580,7 +3599,7 @@ document.getElementById("usersTable").addEventListener("click", (event) => {
 document.getElementById("toggleArchivedDocumentsBtn")?.addEventListener("click", () => {
   showArchivedDocuments = !showArchivedDocuments;
   const button = document.getElementById("toggleArchivedDocumentsBtn");
-  button.textContent = showArchivedDocuments ? "Voltar para documentos ativos" : "Ver arquivo documental";
+  button.textContent = showArchivedDocuments ? "Ver documentos ativos" : "Ver documentos arquivados";
   document.getElementById("documentsUnitFilter").value = "";
   renderDocuments();
 });
@@ -3641,7 +3660,7 @@ document.getElementById("documentsList")?.addEventListener("change", async (even
   if (!unitId || !file || !canUploadDocumentForUnit(unitId)) return;
   try {
     const uploaded = await uploadAsset(file, { unitId, kind: "document" });
-    setDocumentEntry(unitId, documentId, {
+    const saved = await setDocumentEntry(unitId, documentId, {
       status: "Processando",
       file: {
         ...uploaded,
@@ -3654,6 +3673,7 @@ document.getElementById("documentsList")?.addEventListener("change", async (even
       rejectedBy: "",
       rejectionReason: "",
     });
+    if (API_ENABLED && !saved) throw new Error("O arquivo foi enviado, mas o registro não foi sincronizado. Clique em Salvar para tentar novamente antes de sair.");
     const unit = units.find((candidate) => candidate.id === unitId);
     const documentType = DOCUMENT_TYPES.find((candidate) => candidate.id === documentId);
     const notification = createNotification({

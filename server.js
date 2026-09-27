@@ -991,6 +991,7 @@ const server = http.createServer(async (req, res) => {
   } catch (error) {
     console.error(error);
     if (!res.headersSent) {
+      if (error.code === "INVALID_UPLOAD") return sendJson(res, 400, { error: error.message });
       if (error.code === "PUBLIC_URL_REQUIRED") return sendJson(res, 503, { error: error.message });
       const status = error.code === "ENOENT" ? 404 : 500;
       const message = status === 404

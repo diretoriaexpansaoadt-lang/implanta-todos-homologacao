@@ -579,7 +579,7 @@ select,
 }
 
 .toolbar.compact {
-  grid-template-columns: minmax(280px, 1fr) 230px;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, auto);
 }
 
 .toolbar.alert-toolbar {
@@ -587,8 +587,12 @@ select,
 }
 
 .toolbar.documents-toolbar {
-  grid-template-columns: minmax(280px, 1fr) 260px 190px;
+  grid-template-columns: minmax(0, 1fr) 260px minmax(190px, auto);
 }
+
+[hidden] { display: none !important; }
+.toolbar button { white-space: normal; overflow-wrap: anywhere; }
+.checklist-description { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .table-wrap {
   background: #fff;
@@ -636,6 +640,15 @@ select,
   padding: 0 8px;
   background: transparent;
   color: var(--ink);
+}
+
+.item-description {
+  min-width: 220px;
+  min-height: 48px;
+  resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
 }
 
 .cell-input:focus,
