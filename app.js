@@ -2075,7 +2075,13 @@ function selectHtml(field, value, options, disabled = "") {
   return `<select class="cell-select" data-field="${field}" ${disabled}>${normalizedOptions.map((option) => `<option value="${escapeHtml(option)}" ${option === value ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select>`;
 }
 
-function supplierLink(item, label = "Comprar") {
+function supplierDisplayName(item) {
+  const value = String(item.fornecedor || "").trim();
+  const url = safeExternalUrl(value);
+  return url ? new URL(url).hostname.replace(/^www\./, "") : value || "Sem fornecedor";
+}
+
+function supplierLink(item, label = "Abrir link") {
   const url = safeExternalUrl(item.fornecedorLink || item.fornecedor);
   if (!url) return "";
   return `<a class="supplier-link" href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(url)}">${escapeHtml(label)}</a>`;
@@ -2099,9 +2105,9 @@ function renderPending() {
       <input type="checkbox" data-issue="${escapeHtml(item.id)}" ${selectedIssues.has(item.id) ? "checked" : ""} />
       <div>
         <h4>${escapeHtml(item.item || "Item sem nome")}</h4>
-        <p>${escapeHtml(item.categoria)} · ${escapeHtml(item.fornecedor || "Sem fornecedor")} · ${money.format(totalOf(item))} · ${escapeHtml(formatDate(item.vencimento) || "sem vencimento")}</p>
+        <p>${escapeHtml(item.categoria)} · ${escapeHtml(supplierDisplayName(item))} · ${money.format(totalOf(item))} · ${escapeHtml(formatDate(item.vencimento) || "sem vencimento")}</p>
         <div class="issue-reasons">${pendingReasons(item).map((reason) => `<span class="reason">${escapeHtml(reason)}</span>`).join("")}</div>
-        ${supplierLink(item, "Abrir fornecedor")}
+        ${supplierLink(item, "Abrir link")}
       </div>
       <span class="badge ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
     </article>
@@ -2138,7 +2144,7 @@ function renderAlerts() {
       <div>
         <span class="alert-pill ${alert.className}">${escapeHtml(alertText(item))}</span>
         <h4>${escapeHtml(item.item || "Item sem nome")}</h4>
-        <p>${escapeHtml(unit.name)} · ${escapeHtml(unitOwnerName(unit))} · ${escapeHtml(item.categoria)} · ${escapeHtml(item.fornecedor || "Sem fornecedor")} · vencimento ${escapeHtml(formatDate(item.vencimento) || "sem data")}</p>
+        <p>${escapeHtml(unit.name)} · ${escapeHtml(unitOwnerName(unit))} · ${escapeHtml(item.categoria)} · ${escapeHtml(supplierDisplayName(item))} · vencimento ${escapeHtml(formatDate(item.vencimento) || "sem data")}</p>
         ${supplierLink(item, "Comprar")}
         ${isDeadlineAlert(item) ? alertContactLinks(unit, item) : ""}
       </div>
@@ -2159,7 +2165,7 @@ function renderPurchases() {
     lane.querySelector("div").innerHTML = laneItems.length ? laneItems.map((item) => `
       <article class="purchase-card">
         <strong>${escapeHtml(item.item || "Item sem nome")}</strong>
-        <p>${escapeHtml(item.categoria)} · ${escapeHtml(item.fornecedor || "Sem fornecedor")} · ${escapeHtml(formatDate(item.vencimento) || "sem vencimento")}</p>
+        <p>${escapeHtml(item.categoria)} · ${escapeHtml(supplierDisplayName(item))} · ${escapeHtml(formatDate(item.vencimento) || "sem vencimento")}</p>
         ${supplierLink(item, "Comprar")}
         <span class="badge ${priorityClass(item.prioridade)}">${escapeHtml(item.prioridade)}</span>
         <span class="alert-pill ${alertInfo(item).className}">${escapeHtml(alertText(item))}</span>
@@ -2310,11 +2316,11 @@ function renderChecklist(unitId, containerId, options = {}) {
             <span class="badge ${statusClass(scoped.status)}">${escapeHtml(scoped.status)}</span>
             <span class="alert-pill ${alertInfo(scoped).className}">${escapeHtml(alertText(scoped))}</span>
           </div>
-          <p>${escapeHtml(scoped.categoria)} · ${escapeHtml(scoped.fornecedor || "Sem fornecedor")} · ${money.format(totalOf(scoped))} · venc. ${escapeHtml(formatDate(scoped.vencimento) || "sem data")}</p>
+          <p>${escapeHtml(scoped.categoria)} · ${escapeHtml(supplierDisplayName(scoped))} · ${money.format(totalOf(scoped))} · venc. ${escapeHtml(formatDate(scoped.vencimento) || "sem data")}</p>
           <p class="checklist-description">${escapeHtml(scoped.descricao || "Descrição não informada.")}</p>
           <p>Quantidade: ${escapeHtml(String(scoped.quantidade === "" ? "Não informada" : scoped.quantidade))} · Valor unitário: ${money.format(Number(scoped.valor) || 0)}</p>
           <div class="checklist-actions">
-            ${supplierLink(scoped, "Comprar")}
+            ${supplierLink(scoped, "Abrir link")}
             ${can("editItems") ? `<button class="danger-button small-action" type="button" data-item-delete="${escapeHtml(item.id)}">Excluir item</button>` : ""}
             <input class="check-note" data-checklist-field="note" placeholder="Observação da unidade" value="${escapeAttr(entry.note || "")}" ${disabled} />
           </div>
