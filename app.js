@@ -1336,14 +1336,33 @@ function fallbackView() {
   return currentPermissions().views[0] || "dashboard";
 }
 
+function repairDisplayText(value) {
+  let text = String(value ?? "");
+  for (let pass = 0; pass < 3; pass++) {
+    const repaired = text.replace(/[\u00c2\u00c3][\u0080-\u00bf]+/g, (chunk) => {
+      try { return decodeURIComponent(Array.from(chunk, (c) => "%" + c.charCodeAt(0).toString(16)).join("")); }
+      catch { return chunk; }
+    });
+    if (repaired === text) break;
+    text = repaired;
+  }
+  return text.normalize("NFC");
+}
+
+function repairCategory(value) {
+  const text = repairDisplayText(value);
+  if (/^Utens[\ufffd?]+lios e Acess[óo]rios$/i.test(text.trim())) return "Utensílios e Acessórios";
+  return text;
+}
+
 function normalizeItem(item) {
   const fornecedor = item["Fornecedor/Local"] ?? item.fornecedor ?? "";
   const link = item["Link Compra"] ?? item["Link de Compra"] ?? item.fornecedorLink ?? item.linkCompra ?? "";
   return {
     id: item.id || crypto.randomUUID(),
-    categoria: item["Categoria"] ?? item.categoria ?? "",
-    item: item["Item"] ?? item.item ?? "",
-    descricao: item["Descrição"] ?? item.descricao ?? "",
+    categoria: repairCategory(item["Categoria"] ?? item.categoria ?? ""),
+    item: repairDisplayText(item["Item"] ?? item.item ?? ""),
+    descricao: repairDisplayText(item["Descrição"] ?? item.descricao ?? ""),
     fornecedor,
     fornecedorLink: normalizeUrl(link || (isLikelyUrl(fornecedor) ? fornecedor : "")),
     valor: toNumber(item["Valor Unitário"] ?? item.valor),
