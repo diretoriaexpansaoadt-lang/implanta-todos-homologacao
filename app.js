@@ -406,6 +406,7 @@ function normalizeUnit(unit) {
   return {
     plannedOpeningDate: unit.plannedOpeningDate || "",
     documentLeadDays: unit.documentLeadDays ?? "",
+    itemLeadDays: unit.itemLeadDays ?? "",
     adjustedOpeningDate: unit.adjustedOpeningDate || "",
     openingDelayDays: unit.openingDelayDays || 0,
     id: unit.id || crypto.randomUUID(),
@@ -1485,18 +1486,22 @@ function refreshOpeningSchedule() {
   OpeningSchedule.apply({ items, units, checklist, documents });
 }
 
-function requestOpeningPlan() {
-  const answer = prompt("Previsão de inauguração (DD/MM/AAAA):");
+function requestOpeningPlan(unit = {}) {
+  const answer = prompt("Previsão de inauguração (DD/MM/AAAA):", unit.plannedOpeningDate ? formatDate(unit.plannedOpeningDate) : "");
   if (answer === null) return null;
   const date = normalizeDate(answer.trim());
   if (!OpeningSchedule.validDate(date) || date < OpeningSchedule.today()) {
     alert("Informe uma data válida de hoje em diante."); return null;
   }
-  const documentDays = prompt("Quantos dias ANTES da inauguração os documentos sem prazo definido devem vencer? (O alerta será enviado 3 dias antes do vencimento.)");
+  const itemDays = prompt("Quantos dias ANTES da inauguração devem ser comprados os itens sem prazo definido? Os prazos já cadastrados serão preservados.", String(unit.itemLeadDays ?? ""));
+  if (itemDays === null) return null;
+  const itemLeadDays = OpeningSchedule.lead(itemDays);
+  if (itemLeadDays === null || itemLeadDays < 1) { alert("Informe uma antecedência de pelo menos 1 dia para as compras."); return null; }
+  const documentDays = prompt("Quantos dias ANTES da inauguração os documentos sem prazo definido devem vencer? (O alerta será enviado 3 dias antes do vencimento.)", String(unit.documentLeadDays ?? ""));
   if (documentDays === null) return null;
   const days = OpeningSchedule.lead(documentDays);
   if (days === null) { alert("Informe a antecedência dos documentos em dias, por exemplo: 15."); return null; }
-  return { plannedOpeningDate: date, documentLeadDays: days };
+  return { plannedOpeningDate: date, documentLeadDays: days, itemLeadDays };
 }
 
 function renderOpeningNotice() {
@@ -1506,7 +1511,8 @@ function renderOpeningNotice() {
   panel.innerHTML = context.filter(unit => unit.plannedOpeningDate).map(unit => {
     const info = OpeningSchedule.forecast(appState(), unit);
     const soon = info.tasks.filter(task => !task.done && task.due && OpeningSchedule.distance(task.due, OpeningSchedule.today()) >= 0 && OpeningSchedule.distance(task.due, OpeningSchedule.today()) <= 3);
-    return `<div class="form-note"><strong>${escapeHtml(unit.name)} · Inauguração prevista: ${formatDate(info.date)}</strong><br>Data planejada: ${formatDate(info.planned)}.${info.delay ? ` Atenção: atraso de ${info.delay} dia(s) no cronograma afeta a previsão de inauguração.` : ""}${soon.length ? ` ${soon.length} prazo(s) vencem nos próximos 3 dias: ${soon.map(task => `${escapeHtml(task.name)} (${formatDate(task.due)})`).join(", ")}.` : ""}${info.missing ? ` ${info.missing} item(ns) sem prazo: defina a antecedência para completar o cronograma.` : ""}</div>`;
+    const overdue = info.tasks.filter(task => !task.done && task.due && OpeningSchedule.distance(OpeningSchedule.today(), task.due) > 0);
+    return `<div class="form-note"><strong>${escapeHtml(unit.name)} · Inauguração prevista: ${formatDate(info.date)}</strong><br>Data planejada: ${formatDate(info.planned)}.${info.delay ? ` Atenção: atraso de ${info.delay} dia(s) no cronograma afeta a previsão de inauguração.` : ""}${soon.length ? ` ${soon.length} prazo(s) vencem nos próximos 3 dias: ${soon.map(task => `${escapeHtml(task.name)} (${formatDate(task.due)})`).join(", ")}.` : ""}${overdue.length ? `<br><strong>Pendências em atraso:</strong> ${overdue.slice(0, 10).map(task => `${escapeHtml(task.name)} (${formatDate(task.due)})`).join(", ")}${overdue.length > 10 ? ` e mais ${overdue.length - 10}. Consulte Pendências e Documentos.` : "."}` : ""}${info.missing ? ` ${info.missing} item(ns) sem prazo: defina a antecedência para completar o cronograma.` : ""}</div>`;
   }).join("");
   panel.hidden = !panel.innerHTML;
 }
@@ -3198,7 +3204,7 @@ document.getElementById("editOpeningPlanBtn")?.addEventListener("click", async (
   if (!can("manageUnits")) return;
   const unit = units.find(row => row.id === selectedUnitId && row.active);
   if (!unit || isImplementationArchived(unit)) return;
-  const plan = requestOpeningPlan();
+  const plan = requestOpeningPlan(unit);
   if (!plan) return;
   Object.assign(unit, plan);
   refreshOpeningSchedule();

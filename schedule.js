@@ -20,9 +20,9 @@
     const items = (state.items || []).map(item => {
       const key = `${unit.id}::${item.id}`;
       const entry = state.checklist?.[key] || {};
-      const days = lead(entry.prazo ?? item.prazo ?? item.Prazo);
+      const days = lead(entry.prazo) ?? lead(item.prazo ?? item.Prazo) ?? lead(unit.itemLeadDays);
       return { key, kind: 'item', name: item.item || item.Item || 'Item', entry, days,
-        due: days === null ? '' : shift(opening, -days), done: Boolean(entry.done || entry.status === 'Comprado' || entry.status === 'Cancelado') };
+        due: days === null ? '' : shift(opening, -days), cancelled: entry.status === 'Cancelado', done: Boolean(entry.done || entry.status === 'Comprado' || entry.status === 'Cancelado') };
     });
     const documentNames = ['Alvará de Vigilância Sanitária', 'Alvará de localização e funcionamento', 'Alvará do Corpo de Bombeiros', 'Cartão CNPJ', 'Certidão Federal', 'Regularidade do FGTS', 'Certidão Municipal', 'Certidão do TJ', 'Certificado Digital', 'Contrato Social', 'Contrato de aluguel', 'Inscrição Estadual e Municipal', 'Registro do Conselho de Fonoaudiologia'];
     const documents = documentNames.map((name, index) => {
@@ -39,7 +39,7 @@
     const tasks = rows(state, unit);
     let delay = 0;
     for (const task of tasks) {
-      if (!task.due) continue;
+      if (!task.due || task.cancelled) continue;
       const completed = task.entry.scheduleCompletedOn;
       const reference = task.done ? (validDate(completed) ? completed : task.due) : date;
       delay = Math.max(delay, distance(reference, task.due));
