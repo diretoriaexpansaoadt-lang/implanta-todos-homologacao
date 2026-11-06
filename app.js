@@ -2778,7 +2778,7 @@ function renderPermissionsMatrix() {
   `).join("");
 }
 
-function updateItem(id, field, value) {
+function updateItem(id, field, value, options = {}) {
   const unit = itemsContextUnit();
   const ownUnit = currentUnit()?.id === unit?.id;
   const allowedOwnEdit = ownUnit && ((field === "valor" && can("editOwnValue")) || (field === "status" && can("changeStatus")));
@@ -2802,7 +2802,7 @@ function updateItem(id, field, value) {
     }
     setChecklistEntry(unit.id, id, patch);
     markDirty();
-    render();
+    if (options.render !== false) render();
     return;
   }
   if (field === "valor" || field === "quantidade") {
@@ -3328,8 +3328,8 @@ function handleItemsTableEdit(event) {
   if (!control) return;
   if (["item", "descricao"].includes(control.dataset.field)) control.title = control.value;
   const row = event.target.closest("tr");
-  updateItem(row.dataset.id, control.dataset.field, control.value);
-  if (control.dataset.field === "valor" || control.dataset.field === "quantidade") {
+const isTyping = event.type === "input" && ["item", "descricao", "fornecedor", "fornecedorLink", "prazo"].includes(control.dataset.field);
+updateItem(row.dataset.id, control.dataset.field, control.value, { render: !isTyping });  if (control.dataset.field === "valor" || control.dataset.field === "quantidade") {
     const item = items.find((candidate) => candidate.id === row.dataset.id);
     const unit = itemsContextUnit();
     row.querySelector(".total").textContent = money.format(totalOf(itemForUnit(item, unit?.id)));
