@@ -3842,3 +3842,20 @@ purchaseBoard?.addEventListener("drop", (event) => {
   if (item && itemForUnit(item, itemsContextUnit()?.id).status !== nextStatus) updateItem(itemId, "status", nextStatus);
 });
 purchaseBoard?.addEventListener("dragend", () => { draggedPurchaseItemId = null; clearPurchaseDragState(); });
+// Mantém os gráficos do dashboard alinhados à unidade selecionada.
+function dashboardScopedItems() {
+  if (can("viewAllUnits")) {
+    return units
+      .filter((unit) => unit.active && !isImplementationArchived(unit))
+      .filter((unit) => !selectedUnitId || unit.id === selectedUnitId)
+      .flatMap((unit) => items.map((item) => ({
+        unit,
+        baseItem: item,
+        item: itemForUnit(item, unit.id),
+        done: isChecklistDone(unit.id, item.id),
+      })));
+  }
+  const unit = currentUnit();
+  if (!unit || isImplementationArchived(unit)) return [];
+  return items.map((item) => ({ unit, baseItem: item, item: itemForUnit(item, unit.id), done: isChecklistDone(unit.id, item.id) }));
+}
