@@ -2188,7 +2188,7 @@ function renderPurchases() {
     const unit = itemsContextUnit();
     const laneItems = items.map((item) => itemForUnit(item, unit?.id)).filter((item) => item.status === status).sort((a, b) => totalOf(b) - totalOf(a)).slice(0, 24);
     lane.querySelector("div").innerHTML = laneItems.length ? laneItems.map((item) => `
-      <article class="purchase-card">
+            <article class="purchase-card" data-purchase-item-id="${escapeHtml(item.id)}" draggable="true" title="Arraste para atualizar o status">
         <strong>${escapeHtml(item.item || "Item sem nome")}</strong>
         <p>${escapeHtml(item.categoria)} · ${escapeHtml(supplierDisplayName(item))} · ${escapeHtml(formatDate(item.vencimento) || "sem vencimento")}</p>
         ${supplierLink(item, "Comprar")}
@@ -3810,3 +3810,35 @@ async function initializeApp() {
 }
 
 initializeApp();
+let draggedPurchaseItemId = null;
+function clearPurchaseDragState() {
+  document.querySelectorAll(".purchase-lane.is-drag-target, .purchase-card.is-dragging").forEach((element) => element.classList.remove("is-drag-target", "is-dragging"));
+}
+const purchaseBoard = document.querySelector(".purchase-columns");
+purchaseBoard?.addEventListener("dragstart", (event) => {
+  const card = event.target.closest("[data-purchase-item-id]");
+  if (!card || !can("changeStatus") || !event.dataTransfer) return;
+  draggedPurchaseItemId = card.dataset.purchaseItemId;
+  card.classList.add("is-dragging");
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", draggedPurchaseItemId);
+});
+purchaseBoard?.addEventListener("dragover", (event) => {
+  const lane = event.target.closest(".purchase-lane");
+  if (!lane || !draggedPurchaseItemId || !can("changeStatus")) return;
+  event.preventDefault();
+  clearPurchaseDragState();
+  lane.classList.add("is-drag-target");
+});
+purchaseBoard?.addEventListener("drop", (event) => {
+  const lane = event.target.closest(".purchase-lane");
+  if (!lane || !draggedPurchaseItemId || !can("changeStatus")) return;
+  event.preventDefault();
+  const itemId = draggedPurchaseItemId;
+  const nextStatus = lane.dataset.status;
+  clearPurchaseDragState();
+  draggedPurchaseItemId = null;
+  const item = items.find((row) => row.id === itemId);
+  if (item && itemForUnit(item, itemsContextUnit()?.id).status !== nextStatus) updateItem(itemId, "status", nextStatus);
+});
+purchaseBoard?.addEventListener("dragend", () => { draggedPurchaseItemId = null; clearPurchaseDragState(); });
