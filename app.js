@@ -3859,3 +3859,13 @@ function dashboardScopedItems() {
   if (!unit || isImplementationArchived(unit)) return [];
   return items.map((item) => ({ unit, baseItem: item, item: itemForUnit(item, unit.id), done: isChecklistDone(unit.id, item.id) }));
 }
+
+let loginSoundStarted=false;
+function playLoginSound(){
+ if(loginSoundStarted)return;
+ const C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+ const c=new C();
+ const run=()=>c.resume().then(()=>{if(loginSoundStarted)return;loginSoundStarted=true;const n=c.currentTime+.03;const tone=(kind,a,b,d,v,delay=0)=>{const o=c.createOscillator(),g=c.createGain();o.type=kind;o.frequency.setValueAtTime(a,n+delay);o.frequency.exponentialRampToValueAtTime(b,n+delay+d);g.gain.setValueAtTime(.0001,n+delay);g.gain.exponentialRampToValueAtTime(v,n+delay+.12);g.gain.exponentialRampToValueAtTime(.0001,n+delay+d);o.connect(g);g.connect(c.destination);o.start(n+delay);o.stop(n+delay+d+.04)};tone("sine",170,620,.9,.045);tone("triangle",980,1380,.58,.018,.22)}).catch(()=>{});
+ run();window.addEventListener("pointerdown",run,{once:true});window.addEventListener("keydown",run,{once:true});
+}
+if(!isAuthenticated())playLoginSound();
