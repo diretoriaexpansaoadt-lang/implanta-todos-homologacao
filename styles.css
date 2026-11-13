@@ -2511,3 +2511,13 @@ select,
   line-height: 1.35;
   text-align: center;
 }
+
+
+/* Movimento orbital sutil da marca na abertura do login. */
+.login-logo{animation:login-logo-orbit 9s linear infinite;will-change:transform,filter}
+@keyframes login-logo-orbit{
+  0%,100%{transform:translate3d(0,-3px,0) scale(1);filter:drop-shadow(0 5px 8px rgba(24,191,210,.12))}
+  25%{transform:translate3d(4px,0,0) scale(1.008);filter:drop-shadow(3px 4px 9px rgba(255,45,45,.14))}
+  50%{transform:translate3d(0,3px,0) scale(1);filter:drop-shadow(0 6px 10px rgba(24,191,210,.15))}
+  75%{transform:translate3d(-4px,0,0) scale(.994);filter:drop-shadow(-3px 4px 9px rgba(255,45,45,.14))}
+}
