@@ -2500,3 +2500,14 @@ select,
 /* Login: honor conditional fields and style recovery action. */
 .login-card label[hidden] { display: none; }
 .login-card .link-button { background: transparent; border: 0; color: var(--teal-dark); cursor: pointer; padding: 8px; text-decoration: underline; }
+.login-footer {
+  display: grid;
+  gap: 3px;
+  margin-top: 2px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+}
